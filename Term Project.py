@@ -11,12 +11,14 @@ opengameart credits:
     MScull
     Georges "TRak" Grondin
 
+reddit credits:
+    u/S-Flo
 '''
 
 
 
 class Entity(object):
-    def __init__(self, maxHealth, strength):
+    def __init__(self, maxHealth, strength, app):
         self.health = maxHealth
         self.maxHealth = maxHealth
         self.strength = strength
@@ -36,8 +38,68 @@ class Entity(object):
 
 
 class Player(Entity):
-    def __init__(self, maxHealth, strength):
-        super().__init__(maxHealth, strength)
+    def __init__(self, maxHealth, strength, app):
+        super().__init__(maxHealth, strength, app)
+        self.x = app.width / 2 # refers to the center left (coordinate 15)
+        self.y = app.height / 2 # refers to the center top (coordinate 15)
+        self.dx = 0
+        self.dy = 0
+        self.weaponRotation = 0
+
+    def mouseMoved(self, app, event):
+        dx = event.x - self.x
+        dy = event.y - self.y
+        try:
+            angle = math.atan(dy / dx)
+        except:
+            angle = math.pi / 2
+        self.weaponRotation = abs(angle) * 180 / math.pi
+        if dx < 0 and dy < 0:
+            self.weaponRotation = 180 - self.weaponRotation
+        elif dx < 0 and dy > 0:
+            self.weaponRotation += 180
+        elif dx > 0 and dy > 0:
+            self.weaponRotation = 360 - self.weaponRotation
+        self.rotatedWeaponImage = self.weaponImage.rotate(self.weaponRotation)
+
+    def keyPressed(self, app, event):
+        if event.key == 'Up':
+            self.dy = -1
+        elif event.key == 'Down':
+            self.dy = 1
+        elif event.key == 'Left':
+            self.dx = -1
+        elif event.key == 'Right':
+            self.dx = 1
+
+    def keyReleased(self, app, event):
+        if event.key == 'Up' or event.key == 'Down':
+            self.dy = 0
+        elif event.key == 'Left' or event.key == 'Right':
+            self.dx = 0
+
+    def timerFired(self, app):
+        self.move()
+
+    def move(self):
+        if self.dx != 0 and self.dy != 0:
+            self.x += self.dx / math.sqrt(2)
+            self.y += self.dy / math.sqrt(2)
+        else:
+            self.x += self.dx
+            self.y += self.dy
+
+    def mousePressed(self, app, event):
+        pass
+
+    def redrawAll(self, app, canvas):
+        self.drawWeapon(app, canvas)
+
+    def drawWeapon(self, app, canvas):
+        canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(self.rotatedWeaponImage))
+
+    def drawPlayer(self, app, canvas):
+        canvas.create_
     
     def heal(self, amount):
         self.health += amount
@@ -46,22 +108,18 @@ class Player(Entity):
 
 
 class Sniper(Player):
-    def __init__(self, maxHealth, strength):
-        super().__init__(maxHealth, strength)
-        self.x = app.width / 2
-        self.y = app.height / 2
+    def __init__(self, maxHealth, strength, app):
+        super().__init__(maxHealth, strength, app)
+        self.weaponImage = app.loadImage('spr_sniper.png')
+        self.rotatedWeaponImage = self.weaponImage
+        self.personImage = app.loadImage('Sniper_person.png')
 
-    def mouseMoved(self, app, event):
-        pass
-
-    def mousePressed(self, app, event):
-        pass
 
 
 
 
 class Enemy(Entity):
-    def __init__(self, maxHealth, strength, x, y): # x and y refer to the top left corner.
+    def __init__(self, maxHealth, strength):
         super().__init__(maxHealth, strength)
 
 
@@ -78,6 +136,7 @@ def appStarted(app):
     app.gameWallImage = app.loadImage('gameWallImage.png')
     app.wallsList = []
     populateWallsList(app)
+    app.player = Sniper(5, 2, app)
 
 
 def start_mousePressed(app, event):
@@ -103,12 +162,25 @@ def start_drawTitle(app, canvas):
     canvas.create_rectangle(x0, y0, x1, y1, fill = '#db817f')
     canvas.create_text(app.width / 2, .75 * app.height, text = 'Start', fill = 'black', font = 'Times 14')
 
+def game_mouseMoved(app, event):
+    app.player.mouseMoved(app, event)
+
 def game_mousePressed(app, event):
     pass
+
+def game_keyPressed(app, event):
+    app.player.keyPressed(app, event)
+
+def game_keyReleased(app, event):
+    app.player.keyReleased(app, event)
+
+def game_timerFired(app):
+    app.player.timerFired(app)
 
 def game_redrawAll(app, canvas):
     canvas.create_image(app.width / 2, app.height / 2,  image = ImageTk.PhotoImage(app.gameBackgroundImage))
     game_drawWall(app, canvas)
+    app.player.redrawAll(app, canvas)
 
 def game_drawWall(app, canvas):
     for (x, y) in app.wallsList:
