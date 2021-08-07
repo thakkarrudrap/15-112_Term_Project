@@ -119,31 +119,32 @@ class Sniper(Player):
         self.personImage = self.personImageFlipped.transpose(Image.FLIP_LEFT_RIGHT)
         self.playerImage = self.personImage
 
-    def mousePressed(self):
-        pass
+    def mousePressed(self, app, event):
+        print('pes')
+        Bullet.bulletList.append(Bullet(self.x, self.y, self.weaponRotation, 5, app))
 
 
 class Bullet(object):
     bulletList = []
 
-    def __init__(self, x, y, dx, dy, angle, damage, app):
+    def __init__(self, x, y, angleDegrees, damage, app):
         self.x = x
         self.y = y
-        self.dx = dx
-        self.dy = dy
         self.damage = damage
-        self.angle = angle
-        Bullet.bulletList.append(self)
+        self.angleDegrees = angleDegrees
+        self.angleRadians = angleDegrees * math.pi / 180
+        print(self.angleDegrees)
+        self.dx = 10 * math.cos(self.angleRadians)
+        self.dy = -10 * math.sin(self.angleRadians)
+        print(self.dx, self.dy)
 
     def move(self):
         self.x += self.dx
         self.y += self.dy
 
-    # def collide(self, other):
-    #     if self.x 
 
     def drawBullet(self, app, canvas):
-        tempImage = app.bulletImage.rotate(self.angle)
+        tempImage = app.bulletImage.rotate(self.angleDegrees)
         canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(tempImage))
 
 
@@ -174,7 +175,6 @@ def appStarted(app):
     app.player = Sniper(5, 2, app)
     app.timerDelay = 20
     app.bulletImage = app.loadImage('spr_sniper_bullet.png')
-    bullet = Bullet(app.width / 2, app.height / 2, 1, 1, 1, 5, app)
 
 
 def start_mousePressed(app, event):
@@ -204,7 +204,7 @@ def game_mouseMoved(app, event):
     app.player.mouseMoved(app, event)
 
 def game_mousePressed(app, event):
-    pass
+    app.player.mousePressed(app, event)
 
 def game_keyPressed(app, event):
     app.player.keyPressed(app, event)
