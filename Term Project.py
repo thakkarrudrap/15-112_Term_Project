@@ -56,21 +56,25 @@ class Player(Entity):
         self.weaponRotation = abs(angle) * 180 / math.pi
         if dx < 0 and dy < 0:
             self.weaponRotation = 180 - self.weaponRotation
-        elif dx < 0 and dy > 0:
+        elif dx <= 0 and dy > 0:
             self.weaponRotation += 180
-        elif dx > 0 and dy > 0:
+        elif dx >= 0 and dy > 0:
             self.weaponRotation = 360 - self.weaponRotation
+        if dx > 0:
+            self.playerImage = self.personImage
+        else:
+            self.playerImage = self.personImageFlipped
         self.rotatedWeaponImage = self.weaponImage.rotate(self.weaponRotation)
 
     def keyPressed(self, app, event):
         if event.key == 'Up':
-            self.dy = -1
+            self.dy = -4
         elif event.key == 'Down':
-            self.dy = 1
+            self.dy = 4
         elif event.key == 'Left':
-            self.dx = -1
+            self.dx = -4
         elif event.key == 'Right':
-            self.dx = 1
+            self.dx = 4
 
     def keyReleased(self, app, event):
         if event.key == 'Up' or event.key == 'Down':
@@ -78,28 +82,26 @@ class Player(Entity):
         elif event.key == 'Left' or event.key == 'Right':
             self.dx = 0
 
-    def timerFired(self, app):
-        self.move()
-
     def move(self):
-        if self.dx != 0 and self.dy != 0:
-            self.x += self.dx / math.sqrt(2)
-            self.y += self.dy / math.sqrt(2)
-        else:
-            self.x += self.dx
-            self.y += self.dy
+        self.x += self.dx
+        self.y += self.dy
+        # if self.dx != 0 and self.dy != 0:
+        #     self.x += self.dx / math.sqrt(2)
+        #     self.y += self.dy / math.sqrt(2)
+        # else:
+        #     self.x += self.dx
+        #     self.y += self.dy
 
-    def mousePressed(self, app, event):
-        pass
 
     def redrawAll(self, app, canvas):
+        self.drawPlayer(app, canvas)
         self.drawWeapon(app, canvas)
 
     def drawWeapon(self, app, canvas):
         canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(self.rotatedWeaponImage))
 
     def drawPlayer(self, app, canvas):
-        canvas.create_
+        canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(self.playerImage))
     
     def heal(self, amount):
         self.health += amount
@@ -112,8 +114,41 @@ class Sniper(Player):
         super().__init__(maxHealth, strength, app)
         self.weaponImage = app.loadImage('spr_sniper.png')
         self.rotatedWeaponImage = self.weaponImage
-        self.personImage = app.loadImage('Sniper_person.png')
+        self.personImageFlipped = app.loadImage('Sniper_person.png')
+        self.personImageFlipped = app.scaleImage(self.personImageFlipped, 64/240)
+        self.personImage = self.personImageFlipped.transpose(Image.FLIP_LEFT_RIGHT)
+        self.playerImage = self.personImage
 
+    def mousePressed(self):
+        pass
+
+
+class Bullet(object):
+    bulletList = []
+
+    def __init__(self, x, y, dx, dy, angle, damage, app):
+        self.x = x
+        self.y = y
+        self.dx = dx
+        self.dy = dy
+        self.damage = damage
+        self.angle = angle
+        Bullet.bulletList.append(self)
+
+    def move(self):
+        self.x += self.dx
+        self.y += self.dy
+
+    # def collide(self, other):
+    #     if self.x 
+
+    def drawBullet(self, app, canvas):
+        tempImage = app.bulletImage.rotate(self.angle)
+        canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(tempImage))
+
+
+    
+    
 
 
 
@@ -137,6 +172,9 @@ def appStarted(app):
     app.wallsList = []
     populateWallsList(app)
     app.player = Sniper(5, 2, app)
+    app.timerDelay = 20
+    app.bulletImage = app.loadImage('spr_sniper_bullet.png')
+    bullet = Bullet(app.width / 2, app.height / 2, 1, 1, 1, 5, app)
 
 
 def start_mousePressed(app, event):
@@ -175,12 +213,16 @@ def game_keyReleased(app, event):
     app.player.keyReleased(app, event)
 
 def game_timerFired(app):
-    app.player.timerFired(app)
+    app.player.move()
+    for bullet in Bullet.bulletList:
+        bullet.move()
 
 def game_redrawAll(app, canvas):
     canvas.create_image(app.width / 2, app.height / 2,  image = ImageTk.PhotoImage(app.gameBackgroundImage))
     game_drawWall(app, canvas)
     app.player.redrawAll(app, canvas)
+    for bullet in Bullet.bulletList:
+        bullet.drawBullet(app, canvas)
 
 def game_drawWall(app, canvas):
     for (x, y) in app.wallsList:
