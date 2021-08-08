@@ -8,44 +8,46 @@ from cmu_112_graphics import *
 
 '''
 opengameart credits:
-    MScull
-    Georges "TRak" Grondin
+    MScull - sniper rifle - https://opengameart.org/content/sniper-and-ak-47
+    Georges "TRak" Grondin - game background - https://opengameart.org/content/dark-stone-tile
 
 reddit credits:
-    u/S-Flo
+    u/S-Flo - sniper person - https://www.reddit.com/r/PixelArt/comments/1mgg5n/occc_cyborg_girl/
 
 pixilart credits:
     StandLight https://www.pixilart.com/art/evil-wizard-577f3a0ba49d8ee
 
-other credits:
+tumblr credits:
     https://pompomthymine.tumblr.com/post/118489741420/a-mummy-done-for-pixel-dailies-last-month/amp
 '''
 
 
 
-class Entity(object):
+# class Entity(object):
+#     def __init__(self, maxHealth, strength, app):
+#         self.health = maxHealth
+#         self.maxHealth = maxHealth
+#         self.strength = strength
+#         self.alive = True
+
+#     def takeDamage(self, amount):
+#         self.health -= amount
+#         if self.health <= 0:
+#             self.alive = False
+
+#     # def dealDamage(self, other):
+#         # if isinstance(other, Enemy):
+#         #     other.takeDamage(self.strength)
+
+#     def __repr__(self):
+#         return f'{type(self).__name__} with current health {self.health}, max health {self.maxHealth}, and strength {self.strength}'
+
+
+class Player(object):
     def __init__(self, maxHealth, strength, app):
         self.health = maxHealth
         self.maxHealth = maxHealth
         self.strength = strength
-        self.alive = True
-
-    def takeDamage(self, amount):
-        self.health -= amount
-        if self.health <= 0:
-            self.alive = False
-
-    # def dealDamage(self, other):
-        # if isinstance(other, Enemy):
-        #     other.takeDamage(self.strength)
-
-    def __repr__(self):
-        return f'{type(self).__name__} with current health {self.health}, max health {self.maxHealth}, and strength {self.strength}'
-
-
-class Player(Entity):
-    def __init__(self, maxHealth, strength, app):
-        super().__init__(maxHealth, strength, app)
         self.x = app.width / 2 # refers to the center left (coordinate 15)
         self.y = app.height / 2 # refers to the center top (coordinate 15)
         self.dx = 0
@@ -231,9 +233,9 @@ class WizardEnemy(Enemy):
 
     def timerFired(self, app):
         self.counter += 1
-        print(self.counter)
+        # print(self.counter)
         if self.counter == 10:
-            print('attack')
+            # print('attack')
             self.attack(self)
             self.counter = 0
 
