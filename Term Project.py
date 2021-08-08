@@ -53,6 +53,7 @@ class Player(object):
         self.dx = 0
         self.dy = 0
         self.weaponRotation = 0
+        self.alive = True
 
     def mouseMoved(self, app, event):
         dx = event.x - self.x
@@ -99,6 +100,11 @@ class Player(object):
         # else:
         #     self.x += self.dx
         #     self.y += self.dy
+
+    def takeDamage(self, amount):
+        self.health -= amount
+        if self.health <= 0:
+            self.alive = False
 
 
     def redrawAll(self, app, canvas):
@@ -161,28 +167,59 @@ class Bullet(object):
             return True
         return False
 
-class EnemyBullet(Bullet):
+class EnemyBullet(object):
     enemyBulletList = []
 
     def __init__(self, x, y, angleDegrees, damage, app):
-        super().__init__(x, y, angleDegrees, damage, app)
+        self.x = x
+        self.y = y
+        self.damage = damage
+        self.angleDegrees = angleDegrees
+        self.angleRadians = angleDegrees * math.pi / 180
+        self.dx = 10 * math.cos(self.angleRadians)
+        self.dy = -10 * math.sin(self.angleRadians)
+        self.image = app.wizardEnemyFireball
 
     def move(self, app):
+        self.x += self.dx
+        self.y += self.dy
         if self.invalidMove(app):
             EnemyBullet.enemyBulletList.remove(self)
             del self
             return
-        self.x += self.dx
-        self.y += self.dy
+        if self.checkPlayerHit(app):
+            app.player.takeDamage(self.damage)
+            EnemyBullet.enemyBulletList.remove(self)
+            del self
+            print(app.player.health)
+            return
+
 
     def drawBullet(self, app, canvas):
         tempImage = self.image.rotate(self.angleDegrees)
-        canvas.create_image(self.x, self.y, image = imageTk.PhotoImage(tempImage))
+        canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(tempImage))
+
+    def invalidMove(self, app):
+        if self.x >= app.width or self.x <= 0 or self.y >= app.height or self.y <= 0:
+            return True
+        return False
+
+    def checkPlayerHit(self, app):
+        dx = self.x - max(app.player.x, min(self.x, app.player.x))
+        dy = self.y - max(app.player.y - app.player.playerImage.size[1] / 4, min(self.y, app.player.y + app.player.playerImage.size[1] / 4))
+        radius = self.image.size[0] / 2
+        return (dx**2 + dy**2) <= (radius**2)
 
 class WizardEnemyFireball(EnemyBullet):
     def __init__(self, x, y, angleDegrees, damage, app):
         super().__init__(x, y, angleDegrees, damage, app)
-        self.image = app.loadImage('enemy_wizard_fireball.png')
+
+    # credit to https://yal.cc/rectangle-circle-intersection-test/
+    def checkPlayerHit(self, app):
+        dx = self.x - max(app.player.x - app.player.playerImage.size[0], min(self.x, app.player.x + app.player.playerImage.size[0]))
+        dy = self.y - max(app.player.y - app.player.playerImage.size[1], min(self.y, app.player.y + app.player.playerImage.size[1]))
+        radius = self.image.size[0] / 2
+        return (dx**2 + dy**2) < (radius**2)
 
 
     
@@ -216,8 +253,8 @@ class WizardEnemy(Enemy):
         super().__init__(maxHealth, strength, image, app)
 
     def attack(self, app):
-        dx = 0 - self.x
-        dy = 0 - self.y
+        dx = app.player.x - self.x
+        dy = app.player.y - self.y
         try:
             angle = math.atan(dy / dx)
         except:
@@ -229,6 +266,10 @@ class WizardEnemy(Enemy):
             angle += 180
         elif dx >= 0 and dy > 0:
             angle = 360 - angle
+        x = self.x
+        y = self.y
+        damage = self.strength
+        EnemyBullet.enemyBulletList.append(EnemyBullet(x, y, angle, damage, app))
             
 
     def timerFired(self, app):
@@ -236,7 +277,7 @@ class WizardEnemy(Enemy):
         # print(self.counter)
         if self.counter == 10:
             # print('attack')
-            self.attack(self)
+            self.attack(app)
             self.counter = 0
 
 
@@ -260,6 +301,10 @@ def appStarted(app):
     app.wizardEnemyFireball = app.loadImage('enemy_wizard_fireball.png')
     Enemy.enemyList.append(WizardEnemy(10, 3, app.wizardEnemyImage, app))
     Enemy.enemyList.append(WizardEnemy(10, 3, app.wizardEnemyImage, app))
+
+    closerX = min(app.player.x - app.player.playerImage.size[0] / 2, app.player.x + app.player.playerImage.size[0] / 2)
+    closerY = min(app.player.y - app.player.playerImage.size[1] / 2, app.player.y + app.player.playerImage.size[1] / 2)
+
 
 
 def start_mousePressed(app, event):
@@ -303,6 +348,8 @@ def game_timerFired(app):
         bullet.move(app)
     for enemy in Enemy.enemyList:
         enemy.timerFired(app)
+    for enemyBullet in EnemyBullet.enemyBulletList:
+        enemyBullet.move(app)
 
 def game_redrawAll(app, canvas):
     canvas.create_image(app.width / 2, app.height / 2,  image = ImageTk.PhotoImage(app.gameBackgroundImage))
