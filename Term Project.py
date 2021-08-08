@@ -13,6 +13,12 @@ opengameart credits:
 
 reddit credits:
     u/S-Flo
+
+pixilart credits:
+    StandLight https://www.pixilart.com/art/evil-wizard-577f3a0ba49d8ee
+
+other credits:
+    https://pompomthymine.tumblr.com/post/118489741420/a-mummy-done-for-pixel-dailies-last-month/amp
 '''
 
 
@@ -120,8 +126,7 @@ class Sniper(Player):
         self.playerImage = self.personImage
 
     def mousePressed(self, app, event):
-        print('pes')
-        Bullet.bulletList.append(Bullet(self.x, self.y, self.weaponRotation, 5, app))
+        Bullet.bulletList.append(Bullet(self.x, self.y, self.weaponRotation, self.strength, app))
 
 
 class Bullet(object):
@@ -133,12 +138,14 @@ class Bullet(object):
         self.damage = damage
         self.angleDegrees = angleDegrees
         self.angleRadians = angleDegrees * math.pi / 180
-        print(self.angleDegrees)
         self.dx = 10 * math.cos(self.angleRadians)
         self.dy = -10 * math.sin(self.angleRadians)
-        print(self.dx, self.dy)
 
-    def move(self):
+    def move(self, app):
+        if self.invalidMove(app):
+            Bullet.bulletList.remove(self)
+            del self
+            return
         self.x += self.dx
         self.y += self.dy
 
@@ -147,16 +154,88 @@ class Bullet(object):
         tempImage = app.bulletImage.rotate(self.angleDegrees)
         canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(tempImage))
 
+    def invalidMove(self, app):
+        if self.x >= app.width or self.x <= 0 or self.y >= app.height or self.y <= 0:
+            return True
+        return False
+
+class EnemyBullet(Bullet):
+    enemyBulletList = []
+
+    def __init__(self, x, y, angleDegrees, damage, app):
+        super().__init__(x, y, angleDegrees, damage, app)
+
+    def move(self, app):
+        if self.invalidMove(app):
+            EnemyBullet.enemyBulletList.remove(self)
+            del self
+            return
+        self.x += self.dx
+        self.y += self.dy
+
+    def drawBullet(self, app, canvas):
+        tempImage = self.image.rotate(self.angleDegrees)
+        canvas.create_image(self.x, self.y, image = imageTk.PhotoImage(tempImage))
+
+class WizardEnemyFireball(EnemyBullet):
+    def __init__(self, x, y, angleDegrees, damage, app):
+        super().__init__(x, y, angleDegrees, damage, app)
+        self.image = app.loadImage('enemy_wizard_fireball.png')
+
 
     
+
+
+
+
+class Enemy(object):
+    enemyList = []
+
+    def __init__(self, maxHealth, strength, image, app):
+        self.health = maxHealth
+        self.maxHealth = maxHealth
+        self.strength = strength
+        self.counter = 0
+        self.x = random.randint(0, app.width)
+        self.y = random.randint(0, app.height)
+        self.image = image
+
+    def drawEnemy(self, app, canvas):
+        canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(self.image))
+
+
+# class Mummy(Enemy):
+#     def __init__(self, maxHealth, strength):
+#         super().__init__(maxHealth, strength)
+
     
+class WizardEnemy(Enemy):
+    def __init__(self, maxHealth, strength, image, app):
+        super().__init__(maxHealth, strength, image, app)
 
+    def attack(self, app):
+        dx = 0 - self.x
+        dy = 0 - self.y
+        try:
+            angle = math.atan(dy / dx)
+        except:
+            angle = math.pi / 2
+        angle = abs(angle) * 180 / math.pi
+        if dx < 0 and dy < 0:
+            angle = 180 - angle
+        elif dx <= 0 and dy > 0:
+            angle += 180
+        elif dx >= 0 and dy > 0:
+            angle = 360 - angle
+            
 
-
-
-class Enemy(Entity):
-    def __init__(self, maxHealth, strength):
-        super().__init__(maxHealth, strength)
+    def timerFired(self, app):
+        self.counter += 1
+        print(self.counter)
+        if self.counter == 10:
+            print('attack')
+            self.attack(self)
+            self.counter = 0
 
 
 
@@ -175,6 +254,10 @@ def appStarted(app):
     app.player = Sniper(5, 2, app)
     app.timerDelay = 20
     app.bulletImage = app.loadImage('spr_sniper_bullet.png')
+    app.wizardEnemyImage = app.loadImage('wizard_enemy_single_frame.png')
+    app.wizardEnemyFireball = app.loadImage('enemy_wizard_fireball.png')
+    Enemy.enemyList.append(WizardEnemy(10, 3, app.wizardEnemyImage, app))
+    Enemy.enemyList.append(WizardEnemy(10, 3, app.wizardEnemyImage, app))
 
 
 def start_mousePressed(app, event):
@@ -215,7 +298,9 @@ def game_keyReleased(app, event):
 def game_timerFired(app):
     app.player.move()
     for bullet in Bullet.bulletList:
-        bullet.move()
+        bullet.move(app)
+    for enemy in Enemy.enemyList:
+        enemy.timerFired(app)
 
 def game_redrawAll(app, canvas):
     canvas.create_image(app.width / 2, app.height / 2,  image = ImageTk.PhotoImage(app.gameBackgroundImage))
@@ -223,6 +308,10 @@ def game_redrawAll(app, canvas):
     app.player.redrawAll(app, canvas)
     for bullet in Bullet.bulletList:
         bullet.drawBullet(app, canvas)
+    for enemy in Enemy.enemyList:
+        enemy.drawEnemy(app, canvas)
+    for enemyBullet in EnemyBullet.enemyBulletList:
+        enemyBullet.drawBullet(app, canvas)
 
 def game_drawWall(app, canvas):
     for (x, y) in app.wallsList:
