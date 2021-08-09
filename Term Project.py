@@ -173,11 +173,11 @@ class Bullet(object):
 
     def checkEnemyHits(self, app):
         for enemy in Enemy.enemyList:
-            dx = self.x - max(enemy.x - enemy.image.size[0] / 3, min(self.x, enemy.x + enemy.image.size[0] / 3))
-            dy = self.y - max(enemy.y - enemy.image.size[1] / 4, min(self.y, app.player.y + enemy.image.size[1] / 4))
+            dx = self.x - max(enemy.x - enemy.image.size[0] / 4, min(self.x, enemy.x + enemy.image.size[0] / 4))
+            dy = self.y - max(enemy.y - enemy.image.size[1] / 4, min(self.y, enemy.y + enemy.image.size[1] / 4))
             radius = 2
             if dx**2 + dy**2 <= radius**2:
-                print(Enemy.enemyList)
+                Enemy.enemyList
                 enemy.takeDamage(self.damage)
                 Bullet.bulletList.remove(self)
                 del self
@@ -324,9 +324,6 @@ def appStarted(app):
     app.wizardEnemyFireball = app.loadImage('enemy_wizard_fireball.png')
     Enemy.enemyList.append(WizardEnemy(10, 3, app))
     Enemy.enemyList.append(WizardEnemy(10, 3, app))
-
-    closerX = min(app.player.x - app.player.playerImage.size[0] / 2, app.player.x + app.player.playerImage.size[0] / 2)
-    closerY = min(app.player.y - app.player.playerImage.size[1] / 2, app.player.y + app.player.playerImage.size[1] / 2)
 
 
 
