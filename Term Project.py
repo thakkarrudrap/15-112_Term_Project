@@ -18,7 +18,10 @@ pixilart credits:
     StandLight https://www.pixilart.com/art/evil-wizard-577f3a0ba49d8ee
 
 tumblr credits:
-    https://pompomthymine.tumblr.com/post/118489741420/a-mummy-done-for-pixel-dailies-last-month/amp
+    mummy - https://pompomthymine.tumblr.com/post/118489741420/a-mummy-done-for-pixel-dailies-last-month/amp
+
+other credits:
+    sniper person alternate - https://www.pngegg.com/en/search?q=cyborg+Art
 '''
 
 
@@ -80,18 +83,37 @@ class Player(object):
     def keyPressed(self, app, event):
         if event.key == 'Up':
             self.dy = -4
+            
+            self.dy = -32
+            self.move()
+            self.dy = 0
         elif event.key == 'Down':
             self.dy = 4
+
+            self.dy = 32
+            self.move()
+            self.dy = 0
         elif event.key == 'Left':
             self.dx = -4
+
+            self.dx = -32
+            self.move()
+            self.dx = 0
         elif event.key == 'Right':
             self.dx = 4
 
-    def keyReleased(self, app, event):
-        if event.key == 'Up' or event.key == 'Down':
-            self.dy = 0
-        elif event.key == 'Left' or event.key == 'Right':
+            self.dx = 32
+            self.move()
             self.dx = 0
+
+
+    def keyReleased(self, app, event):
+    #     if event.key == 'Up' or event.key == 'Down':
+    #         self.dy = 0
+    #     elif event.key == 'Left' or event.key == 'Right':
+    #         self.dx = 0
+        pass
+
 
     def move(self):
         self.x += self.dx
@@ -131,9 +153,9 @@ class Sniper(Player):
         super().__init__(maxHealth, strength, app)
         self.weaponImage = app.loadImage('spr_sniper.png')
         self.rotatedWeaponImage = self.weaponImage
-        self.personImageFlipped = app.loadImage('Sniper_person.png')
-        self.personImageFlipped = app.scaleImage(self.personImageFlipped, 64/240)
-        self.personImage = self.personImageFlipped.transpose(Image.FLIP_LEFT_RIGHT)
+        self.personImage = app.loadImage('sniper_person_alternate.png')
+        # self.personImageFlipped = app.scaleImage(self.personImageFlipped, 64/240)
+        self.personImageFlipped = self.personImage.transpose(Image.FLIP_LEFT_RIGHT)
         self.playerImage = self.personImage
 
     def mousePressed(self, app, event):
@@ -181,6 +203,7 @@ class Bullet(object):
                 enemy.takeDamage(self.damage)
                 Bullet.bulletList.remove(self)
                 del self
+                break
 
 
 
@@ -305,6 +328,36 @@ class WizardEnemy(Enemy):
 
 
 
+# Credit for this: Nicholas Swift
+# as found at https://medium.com/@nicholas.w.swift/easy-a-star-pathfinding-7e6689c7f7b2
+
+class Node:
+    """
+    A node class for A* Pathfinding
+    """
+
+    def __init__(self, parent=None, position=None):
+        self.parent = parent
+        self.position = position
+
+        self.g = 0
+        self.h = 0
+        self.f = 0
+
+    def __eq__(self, other):
+        return self.position == other.position
+    
+    def __repr__(self):
+      return f"{self.position} - g: {self.g} h: {self.h} f: {self.f}"
+
+    # defining less than for purposes of heap queue
+    def __lt__(self, other):
+      return self.f < other.f
+    
+    # defining greater than for purposes of heap queue
+    def __gt__(self, other):
+      return self.f > other.f
+
 
     
 
@@ -315,8 +368,6 @@ def appStarted(app):
     app.gameBackgroundImage = app.loadImage('gameBackgroundImage.jpg')
     app.gameBackgroundImage = app.scaleImage(app.gameBackgroundImage, 4)
     app.gameWallImage = app.loadImage('gameWallImage.png')
-    app.wallsList = []
-    populateWallsList(app)
     app.player = Sniper(5, 2, app)
     app.timerDelay = 20
     app.bulletImage = app.loadImage('spr_sniper_bullet.png')
@@ -324,21 +375,152 @@ def appStarted(app):
     app.wizardEnemyFireball = app.loadImage('enemy_wizard_fireball.png')
     Enemy.enemyList.append(WizardEnemy(10, 3, app))
     Enemy.enemyList.append(WizardEnemy(10, 3, app))
+    app.rows = 32
+    app.cols = 32
+    # populateWallsList(app)
+    app.tilesList = [[0 for col in range(app.cols)] for row in range(app.rows)]
+    populateTilesList(app)
+    print(app.tilesList, Enemy.enemyList[1].y)
+    path = astar(app.tilesList, (app.player.x, app.player.y), (Enemy.enemyList[1].x, Enemy.enemyList[1].y))
+    print(path)
+
+# Change this later
+def populateTilesList(app):
+    app.tilesList[5][6] = 1
+    app.tilesList[5][7] = 1
+    app.tilesList[5][8] = 1
+    app.tilesList[5][9] = 1
+
+def getCellBounds(row, col, app):
+    cellWidth = app.width / app.cols
+    cellHeight = app.height / app.rows
+    x0 = col * cellWidth
+    y0 = row * cellHeight
+    x1 = x0 + cellWidth
+    y1 = y0 + cellHeight
+    return x0, y0, x1, y1
+
+def getCell(x, y, app):
+    cellWidth = app.width / app.cols
+    cellHeight = app.height / app.rows
+    
 
 
+def return_path(current_node):
+    path = []
+    current = current_node
+    while current is not None:
+        path.append(current.position)
+        current = current.parent
+    return path[::-1]  # Return reversed path
+
+
+def astar(maze, start, end, allow_diagonal_movement = False):
+    """
+    Returns a list of tuples as a path from the given start to the given end in the given maze
+    :param maze:
+    :param start:
+    :param end:
+    :return:
+    """
+
+    # Create start and end node
+    start_node = Node(None, start)
+    start_node.g = start_node.h = start_node.f = 0
+    end_node = Node(None, end)
+    end_node.g = end_node.h = end_node.f = 0
+
+    # Initialize both open and closed list
+    open_list = []
+    closed_list = []
+
+    # add start node to open list
+    open_list.append(start_node)
+
+    # Adding a stop condition
+    outer_iterations = 0
+    max_iterations = (len(maze[0]) * len(maze) // 2)
+
+    # what squares do we search
+    adjacent_squares = ((0, -1), (0, 1), (-1, 0), (1, 0),)
+    if allow_diagonal_movement:
+        adjacent_squares = ((0, -1), (0, 1), (-1, 0), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1),)
+
+    # Loop until you find the end
+    while len(open_list) > 0:
+        outer_iterations += 1
+
+        if outer_iterations > max_iterations:
+          # if we hit this point return the path such as it is
+          # it will not contain the destination
+          return return_path(current_node)       
+        
+        # Get the current node and append it to closed list
+
+        current_node = smallestNode(open_list)
+        open_list.remove(current_node)
+        closed_list.append(current_node)
+
+        # Found the goal
+        if current_node == end_node:
+            return return_path(current_node)
+
+        # Generate children
+        children = []
+        
+        for new_position in adjacent_squares: # Adjacent squares
+
+            # Get node position
+            node_position = (current_node.position[0] + new_position[0], current_node.position[1] + new_position[1])
+
+            # Make sure within range
+            if node_position[0] > (len(maze) - 1) or node_position[0] < 0 or node_position[1] > (len(maze[len(maze)-1]) -1) or node_position[1] < 0:
+                continue
+
+            # Make sure walkable terrain
+            if maze[node_position[0]][node_position[1]] != 0:
+                continue
+
+            # Create new node
+            new_node = Node(current_node, node_position)
+
+            # Append
+            children.append(new_node)
+
+        # Loop through children
+        for child in children:
+            # Child is on the closed list
+            if len([closed_child for closed_child in closed_list if closed_child == child]) > 0:
+                continue
+
+            # Create the f, g, and h values
+            child.g = current_node.g + 1
+            child.h = ((child.position[0] - end_node.position[0]) ** 2) + ((child.position[1] - end_node.position[1]) ** 2)
+            child.f = child.g + child.h
+
+            # Child is already in the open list
+            if len([open_node for open_node in open_list if child.position == open_node.position and child.g > open_node.g]) > 0:
+                continue
+
+            # Add the child to the open list
+            open_list.append(child)
+
+    return None
+
+def smallestNode(L):
+    smallestF = 10000000000000
+    smallestNode = L[0]
+    for node in L:
+        if node.f < smallestF:
+            smallestF = node.f
+            smallestNode = node
+    return smallestNode
 
 def start_mousePressed(app, event):
     x0, y0, x1, y1 = app.startButtonBounds
     if event.x >= x0 and event.x <= x1 and event.y >= y0 and event.y <= y1:
         app.mode = 'game'
-
-# Change this later
-def populateWallsList(app):
-    app.wallsList.append((512, 620))
-    app.wallsList.append((512, 652))
-    app.wallsList.append((512, 684))
-    app.wallsList.append((544, 620))
-    app.wallsList.append((544, 652))
+    
 
 def start_redrawAll(app, canvas):
     start_drawTitle(app, canvas)
@@ -370,6 +552,7 @@ def game_timerFired(app):
         enemy.timerFired(app)
     for enemyBullet in EnemyBullet.enemyBulletList:
         enemyBullet.move(app)
+    
 
 def game_redrawAll(app, canvas):
     canvas.create_image(app.width / 2, app.height / 2,  image = ImageTk.PhotoImage(app.gameBackgroundImage))
@@ -383,8 +566,11 @@ def game_redrawAll(app, canvas):
         enemyBullet.drawBullet(app, canvas)
 
 def game_drawWall(app, canvas):
-    for (x, y) in app.wallsList:
-        canvas.create_image(x, y, image = ImageTk.PhotoImage(app.gameWallImage))
+    for row in range(len(app.tilesList)):
+        for col in range(len(app.tilesList[0])):
+            if app.tilesList[row][col] == 1:
+                x0, y0, x1, y1 = getCellBounds(row, col, app)
+                canvas.create_image((x0 + x1) / 2, (y0 + y1) / 2, image = ImageTk.PhotoImage(app.gameWallImage))
 
 
 runApp(width = 1024, height = 1024)
