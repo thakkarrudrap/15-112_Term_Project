@@ -75,6 +75,8 @@ class Player(object):
             self.playerImage = self.personImageFlipped
         self.rotatedWeaponImage = self.weaponImage.rotate(self.weaponRotation)
 
+
+    # change weapon rotation here also.
     def keyPressed(self, app, event):
         if event.key == 'Up':
             self.dy = -4
@@ -116,6 +118,7 @@ class Player(object):
 
     def drawPlayer(self, app, canvas):
         canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(self.playerImage))
+        # canvas.create_rectangle(self.x - self.playerImage.size[0] / 2, self.y - self.playerImage.size[1] / 2, self.x + self.playerImage.size[0] / 2, self.y + self.playerImage.size[1] / 2)
     
     def heal(self, amount):
         self.health += amount
@@ -150,12 +153,13 @@ class Bullet(object):
         self.dy = -10 * math.sin(self.angleRadians)
 
     def move(self, app):
+        self.x += self.dx
+        self.y += self.dy
         if self.invalidMove(app):
             Bullet.bulletList.remove(self)
             del self
             return
-        self.x += self.dx
-        self.y += self.dy
+        self.checkEnemyHits(app)
 
 
     def drawBullet(self, app, canvas):
@@ -166,6 +170,19 @@ class Bullet(object):
         if self.x >= app.width or self.x <= 0 or self.y >= app.height or self.y <= 0:
             return True
         return False
+
+    def checkEnemyHits(self, app):
+        for enemy in Enemy.enemyList:
+            dx = self.x - max(enemy.x - enemy.image.size[0] / 3, min(self.x, enemy.x + enemy.image.size[0] / 3))
+            dy = self.y - max(enemy.y - enemy.image.size[1] / 4, min(self.y, app.player.y + enemy.image.size[1] / 4))
+            radius = 2
+            if dx**2 + dy**2 <= radius**2:
+                print(Enemy.enemyList)
+                enemy.takeDamage(self.damage)
+                Bullet.bulletList.remove(self)
+                del self
+
+
 
 class EnemyBullet(object):
     enemyBulletList = []
@@ -191,7 +208,6 @@ class EnemyBullet(object):
             app.player.takeDamage(self.damage)
             EnemyBullet.enemyBulletList.remove(self)
             del self
-            print(app.player.health)
             return
 
 
@@ -205,10 +221,10 @@ class EnemyBullet(object):
         return False
 
     def checkPlayerHit(self, app):
-        dx = self.x - max(app.player.x, min(self.x, app.player.x))
+        dx = self.x - max(app.player.x - app.player.playerImage.size[0] / 10000, min(self.x, app.player.x + app.player.playerImage.size[0] / 10000))
         dy = self.y - max(app.player.y - app.player.playerImage.size[1] / 4, min(self.y, app.player.y + app.player.playerImage.size[1] / 4))
         radius = self.image.size[0] / 2
-        return (dx**2 + dy**2) <= (radius**2)
+        return dx**2 + dy**2 <= radius**2
 
 class WizardEnemyFireball(EnemyBullet):
     def __init__(self, x, y, angleDegrees, damage, app):
@@ -230,14 +246,20 @@ class WizardEnemyFireball(EnemyBullet):
 class Enemy(object):
     enemyList = []
 
-    def __init__(self, maxHealth, strength, image, app):
+    def __init__(self, maxHealth, strength, app):
         self.health = maxHealth
         self.maxHealth = maxHealth
         self.strength = strength
         self.counter = 0
         self.x = random.randint(0, app.width)
         self.y = random.randint(0, app.height)
-        self.image = image
+
+    def takeDamage(self, amount):
+        self.health -= amount
+        print(self.health)
+        if self.health <= 0:
+            Enemy.enemyList.remove(self)
+            del self
 
     def drawEnemy(self, app, canvas):
         canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(self.image))
@@ -249,8 +271,9 @@ class Enemy(object):
 
     
 class WizardEnemy(Enemy):
-    def __init__(self, maxHealth, strength, image, app):
-        super().__init__(maxHealth, strength, image, app)
+    def __init__(self, maxHealth, strength, app):
+        super().__init__(maxHealth, strength, app)
+        self.image = app.wizardEnemyImage
 
     def attack(self, app):
         dx = app.player.x - self.x
@@ -299,8 +322,8 @@ def appStarted(app):
     app.bulletImage = app.loadImage('spr_sniper_bullet.png')
     app.wizardEnemyImage = app.loadImage('wizard_enemy_single_frame.png')
     app.wizardEnemyFireball = app.loadImage('enemy_wizard_fireball.png')
-    Enemy.enemyList.append(WizardEnemy(10, 3, app.wizardEnemyImage, app))
-    Enemy.enemyList.append(WizardEnemy(10, 3, app.wizardEnemyImage, app))
+    Enemy.enemyList.append(WizardEnemy(10, 3, app))
+    Enemy.enemyList.append(WizardEnemy(10, 3, app))
 
     closerX = min(app.player.x - app.player.playerImage.size[0] / 2, app.player.x + app.player.playerImage.size[0] / 2)
     closerY = min(app.player.y - app.player.playerImage.size[1] / 2, app.player.y + app.player.playerImage.size[1] / 2)
