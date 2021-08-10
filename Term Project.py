@@ -315,7 +315,6 @@ class MeleeEnemy(Enemy):
             dy = (self.movePath[1][1] - self.movePath[0][1]) * self.speed
             self.x += dx
             self.y += dy
-            print(getCell(self.x, self.y, app))
             if getCell(self.x, self.y, app) == self.movePath[1]:
                 self.movePath.pop(0)
         else:
@@ -341,14 +340,68 @@ class MummyEnemy(MeleeEnemy):
         self.moveTicks = 5
         self.attackTicks = 5
             
-            
+class RangedEnemy(Enemy):
+    def __init__(self, maxHealth, strength, app):
+        super().__init__(maxHealth, strength, app)
+
+    def timerFired(self, app):
+        self.moveCounter = (self.moveCounter + 1) % self.pathUpdateTicks
+        if self.moveCounter == 0:
+            self.movePath = astar(app.tilesList, getCell(self.x, self.y, app), self.getTarget(app))
+        if self.moveCounter % self.moveTicks == 0:
+            self.move(app)
+        
+        self.counter = (self.counter + 1) % self.attackTicks
+        if self.counter == 0:
+            self.attack(app)
+        
+
+
+    def move(self, app):
+        if len(self.movePath) >= 2:
+            dx = (self.movePath[1][0] - self.movePath[0][0]) * self.speed
+            dy = (self.movePath[1][1] - self.movePath[0][1]) * self.speed
+            self.x += dx
+            self.y += dy
+            if getCell(self.x, self.y, app) == self.movePath[1]:
+                self.movePath.pop(0)
+        # print(getCell(self.x, self.y, app))
+
+    def getTarget(self, app):
+        cellWidth = app.width / app.cols
+        cellHeight = app.height / app.rows
+        l = [i for i in range(self.minRange, self.maxRange + 1)]
+        l.extend([-i for i in range(self.minRange, self.maxRange + 1)])
+        dx = random.choice(l)
+        dy = random.choice(l)
+        newX = app.player.x + dx*cellWidth
+        newY = app.player.y + dy*cellHeight
+        if newX >= app.width:
+            newX = app.width
+        elif newX <= 0:
+            newX = 0
+        if newY >= app.height:
+            newY = app.height
+        elif newY <= 0:
+            newY = 0
+        # for row in range(getCell(app.player.x, app.player.y, app)[1], getCell(newX, newY, app)[1]):
+        #     for col in range(getCell(app.player.x, app.player.y, app)[0], getCell(newX, newY, app)[0]):
+        #         if app.tilesList[row][col] == 1:
+        #             newX, newY = app.player.x, app.player.y
+        print(getCell(newX, newY, app))
+        return getCell(newX, newY, app)
 
 
     
-class WizardEnemy(Enemy):
+class WizardEnemy(RangedEnemy):
     def __init__(self, maxHealth, strength, app):
         super().__init__(maxHealth, strength, app)
         self.image = app.wizardEnemyImage
+        self.minRange = 5
+        self.maxRange = 8
+        self.pathUpdateTicks = 70
+        self.moveTicks = 5
+        self.attackTicks = 20
 
     def attack(self, app):
         dx = app.player.x - self.x
@@ -364,19 +417,8 @@ class WizardEnemy(Enemy):
             angle += 180
         elif dx >= 0 and dy > 0:
             angle = 360 - angle
-        x = self.x
-        y = self.y
-        damage = self.strength
-        EnemyBullet.enemyBulletList.append(EnemyBullet(x, y, angle, damage, app))
+        EnemyBullet.enemyBulletList.append(EnemyBullet(self.x, self.y, angle, self.strength, app))
             
-
-    def timerFired(self, app):
-        self.counter += 1
-        # print(self.counter)
-        if self.counter == 25:
-            # print('attack')
-            self.attack(app)
-            self.counter = 0
 
 
 
@@ -433,9 +475,8 @@ def appStarted(app):
     populateTilesList(app)
     print(app.tilesList)
     Enemy.enemyList.append(MummyEnemy(10, 1, app))
-    print(astar(app.tilesList, getCell(Enemy.enemyList[0].x, Enemy.enemyList[0].y, app), getCell(app.player.x, app.player.y, app)))
-    # Enemy.enemyList.append(WizardEnemy(10, 3, app))
-    # Enemy.enemyList.append(WizardEnemy(10, 3, app))
+    Enemy.enemyList.append(WizardEnemy(10, 3, app))
+    Enemy.enemyList.append(WizardEnemy(10, 3, app))
 
 # Change this later
 def populateTilesList(app):
