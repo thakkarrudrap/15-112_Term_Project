@@ -51,8 +51,8 @@ class Player(object):
         self.health = maxHealth
         self.maxHealth = maxHealth
         self.strength = strength
-        self.x = app.width / 2 # refers to the center left (coordinate 15)
-        self.y = app.height / 2 # refers to the center top (coordinate 15)
+        self.x = 32
+        self.y = 32
         self.dx = 0
         self.dy = 0
         self.weaponRotation = 0
@@ -277,6 +277,9 @@ class Enemy(object):
         self.counter = 0
         self.x = random.randint(0, app.width)
         self.y = random.randint(0, app.height)
+        self.moveCounter = 0
+        self.movePath = astar(app.tilesList, getCell(self.x, self.y, app), getCell(app.player.x, app.player.y, app))
+        self.speed = 16
 
     def takeDamage(self, amount):
         self.health -= amount
@@ -289,23 +292,54 @@ class Enemy(object):
         canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(self.image))
 
 
-class MummyEnemy(Enemy):
+
+
+
+class MeleeEnemy(Enemy):
     def __init__(self, maxHealth, strength, app):
         super().__init__(maxHealth, strength, app)
-        self.image = app.mummyEnemyImage
-
+    
     def attack(self, app):
         app.player.takeDamage(self.strength)
 
     def timerFired(self, app):
-        if distance(self.x, self.y, app.player.x, app.player.y) <= 20:
-            app.counter = (app.counter + 1) % 5
-            if app.counter == 0:
-                self.attack(app)
+        self.moveCounter = (self.moveCounter + 1) % self.pathUpdateTicks
+        if self.moveCounter == 0:
+            self.movePath = astar(app.tilesList, getCell(self.x, self.y, app), getCell(app.player.x, app.player.y, app))
+        if self.moveCounter % self.moveTicks == 0:
+            self.move(app)
+
+    def move(self, app):
+        if len(self.movePath) >= 2:
+            dx = (self.movePath[1][0] - self.movePath[0][0]) * self.speed
+            dy = (self.movePath[1][1] - self.movePath[0][1]) * self.speed
+            self.x += dx
+            self.y += dy
+            print(getCell(self.x, self.y, app))
+            if getCell(self.x, self.y, app) == self.movePath[1]:
+                self.movePath.pop(0)
         else:
-            app.counter = 0
+            if self.inRange(app):
+                self.counter = (self.counter + 1) % self.attackTicks
+                if self.counter == 0:
+                    self.attack(app)
+            else:
+                self.counter = 0
 
+    def inRange(self, app):
+        dx = getCell(app.player.x, app.player.y, app)[0] - getCell(self.x, self.y, app)[0]
+        dy = getCell(app.player.x, app.player.y, app)[1] - getCell(self.x, self.y, app)[1]
+        if dx**2 + dy**2 <= 2:
+            return True
+        return False
 
+class MummyEnemy(MeleeEnemy):
+    def __init__(self, maxHealth, strength, app):
+        super().__init__(maxHealth, strength, app)
+        self.image = app.mummyEnemyImage
+        self.pathUpdateTicks = 30
+        self.moveTicks = 5
+        self.attackTicks = 5
             
             
 
@@ -392,24 +426,27 @@ def appStarted(app):
     app.wizardEnemyImage = app.loadImage('wizard_enemy_single_frame.png')
     app.wizardEnemyFireball = app.loadImage('enemy_wizard_fireball.png')
     app.mummyEnemyImage = app.loadImage('mummy_enemy_single.png')
-    Enemy.enemyList.append(WizardEnemy(10, 3, app))
-    Enemy.enemyList.append(WizardEnemy(10, 3, app))
-    Enemy.enemyList.append(MummyEnemy(10, 1, app))
     app.rows = 32
     app.cols = 32
     # populateWallsList(app)
     app.tilesList = [[0 for col in range(app.cols)] for row in range(app.rows)]
     populateTilesList(app)
-    print(app.tilesList, Enemy.enemyList[1].y)
-    path = astar(app.tilesList, (app.player.x, app.player.y), (Enemy.enemyList[1].x, Enemy.enemyList[1].y))
-    print(path)
+    print(app.tilesList)
+    Enemy.enemyList.append(MummyEnemy(10, 1, app))
+    print(astar(app.tilesList, getCell(Enemy.enemyList[0].x, Enemy.enemyList[0].y, app), getCell(app.player.x, app.player.y, app)))
+    # Enemy.enemyList.append(WizardEnemy(10, 3, app))
+    # Enemy.enemyList.append(WizardEnemy(10, 3, app))
 
 # Change this later
 def populateTilesList(app):
+    app.tilesList[5][5] = 1
     app.tilesList[5][6] = 1
     app.tilesList[5][7] = 1
     app.tilesList[5][8] = 1
     app.tilesList[5][9] = 1
+    app.tilesList[6][5] = 1
+    app.tilesList[6][6] = 1
+    app.tilesList[6][7] = 1
 
 def getCellBounds(row, col, app):
     cellWidth = app.width / app.cols
@@ -423,6 +460,9 @@ def getCellBounds(row, col, app):
 def getCell(x, y, app):
     cellWidth = app.width / app.cols
     cellHeight = app.height / app.rows
+    row = int(x / cellHeight)
+    col = int(y / cellWidth)
+    return row, col
     
 def distance(x0, y0, x1, y1):
     return ((x0 - x1)**2 + (y0 - y1)**2)**0.5
@@ -591,7 +631,7 @@ def game_drawWall(app, canvas):
         for col in range(len(app.tilesList[0])):
             if app.tilesList[row][col] == 1:
                 x0, y0, x1, y1 = getCellBounds(row, col, app)
-                canvas.create_image((x0 + x1) / 2, (y0 + y1) / 2, image = ImageTk.PhotoImage(app.gameWallImage))
+                canvas.create_image((y0 + y1) / 2, (x0 + x1) / 2, image = ImageTk.PhotoImage(app.gameWallImage))
 
 
 runApp(width = 1024, height = 1024)
