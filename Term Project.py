@@ -129,6 +129,7 @@ class Player(object):
         self.health -= amount
         if self.health <= 0:
             self.alive = False
+        print(self.health, self.alive)
 
 
     def redrawAll(self, app, canvas):
@@ -288,9 +289,26 @@ class Enemy(object):
         canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(self.image))
 
 
-# class Mummy(Enemy):
-#     def __init__(self, maxHealth, strength):
-#         super().__init__(maxHealth, strength)
+class MummyEnemy(Enemy):
+    def __init__(self, maxHealth, strength, app):
+        super().__init__(maxHealth, strength, app)
+        self.image = app.mummyEnemyImage
+
+    def attack(self, app):
+        app.player.takeDamage(self.strength)
+
+    def timerFired(self, app):
+        if distance(self.x, self.y, app.player.x, app.player.y) <= 20:
+            app.counter = (app.counter + 1) % 5
+            if app.counter == 0:
+                self.attack(app)
+        else:
+            app.counter = 0
+
+
+            
+            
+
 
     
 class WizardEnemy(Enemy):
@@ -321,7 +339,7 @@ class WizardEnemy(Enemy):
     def timerFired(self, app):
         self.counter += 1
         # print(self.counter)
-        if self.counter == 10:
+        if self.counter == 25:
             # print('attack')
             self.attack(app)
             self.counter = 0
@@ -373,8 +391,10 @@ def appStarted(app):
     app.bulletImage = app.loadImage('spr_sniper_bullet.png')
     app.wizardEnemyImage = app.loadImage('wizard_enemy_single_frame.png')
     app.wizardEnemyFireball = app.loadImage('enemy_wizard_fireball.png')
+    app.mummyEnemyImage = app.loadImage('mummy_enemy_single.png')
     Enemy.enemyList.append(WizardEnemy(10, 3, app))
     Enemy.enemyList.append(WizardEnemy(10, 3, app))
+    Enemy.enemyList.append(MummyEnemy(10, 1, app))
     app.rows = 32
     app.cols = 32
     # populateWallsList(app)
@@ -404,7 +424,8 @@ def getCell(x, y, app):
     cellWidth = app.width / app.cols
     cellHeight = app.height / app.rows
     
-
+def distance(x0, y0, x1, y1):
+    return ((x0 - x1)**2 + (y0 - y1)**2)**0.5
 
 def return_path(current_node):
     path = []
