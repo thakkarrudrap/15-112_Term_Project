@@ -57,6 +57,7 @@ class Player(object):
         self.dy = 0
         self.weaponRotation = 0
         self.alive = True
+        self.moveTimer = 0
 
     def mouseMoved(self, app, event):
         dx = event.x - self.x
@@ -79,32 +80,33 @@ class Player(object):
         self.rotatedWeaponImage = self.weaponImage.rotate(self.weaponRotation)
 
 
-    # change weapon rotation here also.
     def keyPressed(self, app, event):
-        if event.key == 'Up':
-            self.dy = -4
-            
-            self.dy = -32
-            self.move()
-            self.dy = 0
-        elif event.key == 'Down':
-            self.dy = 4
+        if self.moveTimer == 0:
+            self.moveTimer = 1
+            if event.key == 'Up':
+                # self.dy = -4
+                
+                self.dy = -16
+                self.move(app)
+                self.dy = 0
+            elif event.key == 'Down':
+                # self.dy = 4
 
-            self.dy = 32
-            self.move()
-            self.dy = 0
-        elif event.key == 'Left':
-            self.dx = -4
+                self.dy = 16
+                self.move(app)
+                self.dy = 0
+            elif event.key == 'Left':
+                # self.dx = -4
 
-            self.dx = -32
-            self.move()
-            self.dx = 0
-        elif event.key == 'Right':
-            self.dx = 4
+                self.dx = -16
+                self.move(app)
+                self.dx = 0
+            elif event.key == 'Right':
+                # self.dx = 4
 
-            self.dx = 32
-            self.move()
-            self.dx = 0
+                self.dx = 16
+                self.move(app)
+                self.dx = 0
 
 
     def keyReleased(self, app, event):
@@ -114,10 +116,20 @@ class Player(object):
     #         self.dx = 0
         pass
 
+    def invalidMove(self, app):
+        row, col = getCell(self.x, self.y, app)
+        if row >= app.rows or col >= app.cols or row < 0 or col < 0 or app.tilesList[row][col] == 1:
+            return True
+        return False
 
-    def move(self):
+    def move(self, app):
+        if self.moveTimer != 0:
+            self.moveTimer = (self.moveTimer + 1) % 3
         self.x += self.dx
         self.y += self.dy
+        if self.invalidMove(app):
+            self.x -= self.dx
+            self.y -= self.dy
         # if self.dx != 0 and self.dy != 0:
         #     self.x += self.dx / math.sqrt(2)
         #     self.y += self.dy / math.sqrt(2)
@@ -129,7 +141,6 @@ class Player(object):
         self.health -= amount
         if self.health <= 0:
             self.alive = False
-        print(self.health, self.alive)
 
 
     def redrawAll(self, app, canvas):
@@ -137,10 +148,10 @@ class Player(object):
         self.drawWeapon(app, canvas)
 
     def drawWeapon(self, app, canvas):
-        canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(self.rotatedWeaponImage))
+        canvas.create_image(self.x + self.playerImage.size[0] / 2, self.y + self.playerImage.size[1] / 2, image = ImageTk.PhotoImage(self.rotatedWeaponImage))
 
     def drawPlayer(self, app, canvas):
-        canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(self.playerImage))
+        canvas.create_image(self.x + self.playerImage.size[0] / 2, self.y + self.playerImage.size[1] / 2, image = ImageTk.PhotoImage(self.playerImage))
         # canvas.create_rectangle(self.x - self.playerImage.size[0] / 2, self.y - self.playerImage.size[1] / 2, self.x + self.playerImage.size[0] / 2, self.y + self.playerImage.size[1] / 2)
     
     def heal(self, amount):
@@ -152,6 +163,7 @@ class Player(object):
 class Sniper(Player):
     def __init__(self, maxHealth, strength, app):
         super().__init__(maxHealth, strength, app)
+        self.bulletSpeed = 30
         self.weaponImage = app.loadImage('spr_sniper.png')
         self.rotatedWeaponImage = self.weaponImage
         self.personImage = app.loadImage('sniper_person_alternate.png')
@@ -172,8 +184,8 @@ class Bullet(object):
         self.damage = damage
         self.angleDegrees = angleDegrees
         self.angleRadians = angleDegrees * math.pi / 180
-        self.dx = 10 * math.cos(self.angleRadians)
-        self.dy = -10 * math.sin(self.angleRadians)
+        self.dx = app.player.bulletSpeed * math.cos(self.angleRadians)
+        self.dy = -app.player.bulletSpeed * math.sin(self.angleRadians)
 
     def move(self, app):
         self.x += self.dx
@@ -283,7 +295,6 @@ class Enemy(object):
 
     def takeDamage(self, amount):
         self.health -= amount
-        print(self.health)
         if self.health <= 0:
             Enemy.enemyList.remove(self)
             del self
@@ -365,7 +376,6 @@ class RangedEnemy(Enemy):
             self.y += dy
             if getCell(self.x, self.y, app) == self.movePath[1]:
                 self.movePath.pop(0)
-        # print(getCell(self.x, self.y, app))
 
     def getTarget(self, app):
         cellWidth = app.width / app.cols
@@ -384,11 +394,10 @@ class RangedEnemy(Enemy):
             newY = app.height
         elif newY <= 0:
             newY = 0
-        # for row in range(getCell(app.player.x, app.player.y, app)[1], getCell(newX, newY, app)[1]):
-        #     for col in range(getCell(app.player.x, app.player.y, app)[0], getCell(newX, newY, app)[0]):
-        #         if app.tilesList[row][col] == 1:
-        #             newX, newY = app.player.x, app.player.y
-        print(getCell(newX, newY, app))
+        for row in range(getCell(app.player.x, app.player.y, app)[1], getCell(newX, newY, app)[1]):
+            for col in range(getCell(app.player.x, app.player.y, app)[0], getCell(newX, newY, app)[0]):
+                if app.tilesList[row][col] == 1:
+                    newX, newY = app.player.x, app.player.y
         return getCell(newX, newY, app)
 
 
@@ -473,7 +482,6 @@ def appStarted(app):
     # populateWallsList(app)
     app.tilesList = [[0 for col in range(app.cols)] for row in range(app.rows)]
     populateTilesList(app)
-    print(app.tilesList)
     Enemy.enemyList.append(MummyEnemy(10, 1, app))
     Enemy.enemyList.append(WizardEnemy(10, 3, app))
     Enemy.enemyList.append(WizardEnemy(10, 3, app))
@@ -647,7 +655,7 @@ def game_keyReleased(app, event):
     app.player.keyReleased(app, event)
 
 def game_timerFired(app):
-    app.player.move()
+    app.player.move(app)
     for bullet in Bullet.bulletList:
         bullet.move(app)
     for enemy in Enemy.enemyList:
