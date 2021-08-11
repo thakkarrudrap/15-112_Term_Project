@@ -154,13 +154,14 @@ class Player(object):
         #     self.x += self.dx
         #     self.y += self.dy
 
-    def takeDamage(self, amount):
+    def takeDamage(self, amount, app):
         self.health -= amount
         if self.health <= 0:
-            self.alive = False
+            app.mode = 'gameOver'
 
 
     def redrawAll(self, app, canvas):
+        self.drawHealth(app, canvas)
         self.drawPlayer(app, canvas)
         self.drawWeapon(app, canvas)
 
@@ -171,6 +172,12 @@ class Player(object):
         canvas.create_image(self.x + 16, self.y + 16, image = ImageTk.PhotoImage(self.playerImage))
         # canvas.create_rectangle(self.x - self.playerImage.size[0] / 2, self.y - self.playerImage.size[1] / 2, self.x + self.playerImage.size[0] / 2, self.y + self.playerImage.size[1] / 2)
     
+    def drawHealth(self, app, canvas):
+        width = app.width * .2
+        height = app.height * .02
+        canvas.create_rectangle(0, 0, width, height, outline = 'white', width = 5)
+        canvas.create_rectangle(0, 0, width * self.health / self.maxHealth, height, fill = 'red', outline = '')
+
     def heal(self, amount):
         self.health += amount
         if self.health > self.maxHealth:
@@ -258,7 +265,7 @@ class EnemyBullet(object):
             del self
             return
         if self.checkPlayerHit(app):
-            app.player.takeDamage(self.damage)
+            app.player.takeDamage(self.damage, app)
             EnemyBullet.enemyBulletList.remove(self)
             del self
             return
@@ -329,7 +336,7 @@ class MeleeEnemy(Enemy):
         super().__init__(maxHealth, strength, app)
     
     def attack(self, app):
-        app.player.takeDamage(self.strength)
+        app.player.takeDamage(self.strength, app)
 
     def timerFired(self, app):
         self.moveCounter = (self.moveCounter + 1) % self.pathUpdateTicks
@@ -499,7 +506,9 @@ def appStarted(app):
     app.mummyEnemyImage = app.loadImage('mummy_enemy_single.png')
     app.rows = 32
     app.cols = 32
-    # populateWallsList(app)
+    Enemy.enemyList = []
+    Bullet.bulletList = []
+    EnemyBullet.enemyBulletList = []
     app.tilesList = [[0 for col in range(app.cols)] for row in range(app.rows)]
     populateTilesList(app)
     app.meleeTypes = ['mummy']
@@ -731,6 +740,16 @@ def newLevel_redrawAll(app, canvas):
     canvas.create_text(app.width / 2, app.height / 2, text = f'Level {app.level} Completed!', font = 'Arial 25')
     canvas.create_rectangle(.4 * app.width, .7 * app.height, .6 * app.width, .8 * app.height, fill = 'red')
     canvas.create_text(app.width / 2, .75 * app.height, text = 'Next Level', font = 'Arial 14')
+
+def gameOver_mousePressed(app, event):
+    if .4 * app.width <= event.x <= .6 * app.width and .7 * app.height <= event.y <= .8 * app.height:
+        appStarted(app)
+
+def gameOver_redrawAll(app, canvas):
+    canvas.create_rectangle(0, 0, app.width, app.height, fill = 'black', outline = '')
+    canvas.create_text(app.width / 2, app.height / 2, text = 'Game Over', fill = 'red', font = 'Arial 25')
+    canvas.create_rectangle(.4 * app.width, .7 * app.height, .6 * app.width, .8 * app.height, fill = 'red')
+    canvas.create_text(app.width / 2, .75 * app.height, text = 'Click here to continue', font = 'Arial 14')
 
 
 runApp(width = 1024, height = 1024)
