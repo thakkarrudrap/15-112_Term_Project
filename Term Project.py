@@ -111,11 +111,7 @@ class Player(object):
 
 
     def keyReleased(self, app, event):
-    #     if event.key == 'Up' or event.key == 'Down':
-    #         self.dy = 0
-    #     elif event.key == 'Left' or event.key == 'Right':
-    #         self.dx = 0
-        pass
+        self.moveTimer = 0
 
     def invalidMove(self, app):
         cellWidth = app.width / app.cols
@@ -133,6 +129,16 @@ class Player(object):
         row, col = getCell(self.x, self.y, app)
         if row >= app.rows or col >= app.cols or row < 0 or col < 0 or app.tilesList[row][col] == 1:
             return True
+        x, y = self.x, self.y
+        if self.x % cellWidth != 0:
+            if self.dx > 0 or self.dy < 0 or self.dy > 0:
+                x = self.x + 16
+        if self.y % cellHeight != 0:
+            if self.dy > 0 or self.dx  < 0 or self.dx > 0:
+                y = self.y + 16
+        row, col = getCell(x, y, app)
+        if app.tilesList[row][col] == 1:
+            return True
         # else:
         #     if self.dx > 0:
         #         if app.tilesList[row + 1][col] == 1 or app.tilesList[row + 1][col + 1] == 1 or app.tilesList[row + 1][col - 1] == 1:
@@ -145,8 +151,6 @@ class Player(object):
         return False
 
     def move(self, app):
-        if self.moveTimer != 0:
-            self.moveTimer = (self.moveTimer + 1) % 3
         self.x += self.dx
         self.y += self.dy
         if self.invalidMove(app):
@@ -174,7 +178,7 @@ class Player(object):
         canvas.create_image(self.x + 16, self.y + 16, image = ImageTk.PhotoImage(self.rotatedWeaponImage))
 
     def drawPlayer(self, app, canvas):
-        canvas.create_image(self.x + 16, self.y + 16, image = ImageTk.PhotoImage(self.playerImage))
+        canvas.create_image(self.x + 16, self.y + 16, image = self.playerImage)
         # canvas.create_rectangle(self.x - self.playerImage.size[0] / 2, self.y - self.playerImage.size[1] / 2, self.x + self.playerImage.size[0] / 2, self.y + self.playerImage.size[1] / 2)
     
     def drawHealth(self, app, canvas):
@@ -197,7 +201,8 @@ class Sniper(Player):
         self.rotatedWeaponImage = self.weaponImage
         self.personImage = app.loadImage('sniper_person_alternate.png')
         # self.personImageFlipped = app.scaleImage(self.personImageFlipped, 64/240)
-        self.personImageFlipped = self.personImage.transpose(Image.FLIP_LEFT_RIGHT)
+        self.personImageFlipped = ImageTk.PhotoImage(self.personImage.transpose(Image.FLIP_LEFT_RIGHT))
+        self.personImage = ImageTk.PhotoImage(self.personImage)
         self.playerImage = self.personImage
 
     def mousePressed(self, app, event):
@@ -264,6 +269,7 @@ class EnemyBullet(object):
         self.dx = 10 * math.cos(self.angleRadians)
         self.dy = -10 * math.sin(self.angleRadians)
         self.image = app.wizardEnemyFireball
+        self.radius = 2
 
     def move(self, app):
         self.x += self.dx
@@ -280,8 +286,7 @@ class EnemyBullet(object):
 
 
     def drawBullet(self, app, canvas):
-        tempImage = self.image.rotate(self.angleDegrees)
-        canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(tempImage))
+        canvas.create_image(self.x, self.y, image = self.image)
 
     def invalidMove(self, app):
         if self.x >= app.width or self.x <= 0 or self.y >= app.height or self.y <= 0:
@@ -291,22 +296,25 @@ class EnemyBullet(object):
             return True
         return False
 
+    # credit to https://yal.cc/rectangle-circle-intersection-test/
     def checkPlayerHit(self, app):
-        dx = self.x - max(app.player.x - app.player.playerImage.size[0] / 10000, min(self.x, app.player.x + app.player.playerImage.size[0] / 10000))
-        dy = self.y - max(app.player.y - app.player.playerImage.size[1] / 4, min(self.y, app.player.y + app.player.playerImage.size[1] / 4))
-        radius = self.image.size[0] / 2
+        # dx = self.x - max(app.player.x - app.player.playerImage.size[0] / 10000, min(self.x, app.player.x + app.player.playerImage.size[0] / 10000))
+        # dy = self.y - max(app.player.y - app.player.playerImage.size[1] / 4, min(self.y, app.player.y + app.player.playerImage.size[1] / 4))
+        dx = self.x - max(app.player.x - 32 / 10000, min(self.x, app.player.x + 32 / 100000))
+        dy = self.y - max(app.player.y - 32 / 4, min(self.y, app.player.y + 32 / 4))
+        radius = 16
         return dx**2 + dy**2 <= radius**2
 
 class WizardEnemyFireball(EnemyBullet):
     def __init__(self, x, y, angleDegrees, damage, app):
         super().__init__(x, y, angleDegrees, damage, app)
+        self.radius = 16
 
-    # credit to https://yal.cc/rectangle-circle-intersection-test/
-    def checkPlayerHit(self, app):
-        dx = self.x - max(app.player.x - app.player.playerImage.size[0], min(self.x, app.player.x + app.player.playerImage.size[0]))
-        dy = self.y - max(app.player.y - app.player.playerImage.size[1], min(self.y, app.player.y + app.player.playerImage.size[1]))
-        radius = self.image.size[0] / 2
-        return (dx**2 + dy**2) < (radius**2)
+    # def checkPlayerHit(self, app):
+    #     dx = self.x - max(app.player.x - app.player.playerImage.size[0], min(self.x, app.player.x + app.player.playerImage.size[0]))
+    #     dy = self.y - max(app.player.y - app.player.playerImage.size[1], min(self.y, app.player.y + app.player.playerImage.size[1]))
+    #     radius = 16
+    #     return (dx**2 + dy**2) < (radius**2)
 
 
     
@@ -321,29 +329,20 @@ class Enemy(object):
         self.health = maxHealth
         self.maxHealth = maxHealth
         self.strength = strength
-        self.counter = 0
-        self.x = random.randint(0, app.width)
-        self.y = random.randint(0, app.height)
+        self.counter = 1
+        self.x = random.randint(0, app.width - 1)
+        self.y = random.randint(0, app.height - 1)
         row, col = getCell(self.x, self.y, app)
+        while row >= app.rows or row < 0 or col >= app.cols or col < 0:
+                self.x = random.randint(0, app.width)
+                self.y = random.randint(0, app.height)
+                row, col = getCell(self.x, self.y, app)
         while(app.tilesList[row][col]) == 1:
             self.x = random.randint(0, app.width)
             self.y = random.randint(0, app.height)
             row, col = getCell(self.x, self.y, app)
         self.moveCounter = 0
         self.movePath = astar(app.tilesList, getCell(self.x, self.y, app), getCell(app.player.x, app.player.y, app))
-        while self.movePath == None:
-            self.x = random.randint(0, app.width)
-            self.y = random.randint(0, app.height)
-            row, col = getCell(self.x, self.y, app)
-            while row >= app.rows or row < 0 or col > app.cols or col < 0:
-                self.x = random.randint(0, app.width)
-                self.y = random.randint(0, app.height)
-                row, col = getCell(self.x, self.y, app)
-            while(app.tilesList[row][col]) == 1:
-                self.x = random.randint(0, app.width)
-                self.y = random.randint(0, app.height)
-                row, col = getCell(self.x, self.y, app)
-            self.movePath = astar(app.tilesList, getCell(self.x, self.y, app), getCell(app.player.x, app.player.y, app))
 
     def takeDamage(self, amount, app):
         self.health -= amount
@@ -528,11 +527,11 @@ def appStarted(app):
     app.startButtonBounds = (app.width / 2 - 100, .7 * app.height, app.width / 2 + 100, .8 * app.height)
     app.gameBackgroundImage = app.loadImage('gameBackgroundImage.jpg')
     app.gameBackgroundImage = app.scaleImage(app.gameBackgroundImage, 4)
-    app.gameWallImage = app.loadImage('gameWallImage.png')
+    app.gameWallImage = ImageTk.PhotoImage(app.loadImage('gameWallImage.png'))
     app.timerDelay = 20
     app.bulletImage = app.loadImage('spr_sniper_bullet.png')
     app.wizardEnemyImage = app.loadImage('wizard_enemy_single_frame.png')
-    app.wizardEnemyFireball = app.loadImage('enemy_wizard_fireball.png')
+    app.wizardEnemyFireball = ImageTk.PhotoImage(app.loadImage('enemy_wizard_fireball.png'))
     app.mummyEnemyImage = app.loadImage('mummy_enemy_single.png')
     Enemy.enemyList = []
     Bullet.bulletList = []
@@ -567,7 +566,7 @@ class Room(object):
 
 
 def populateRoomList(app):
-    for i in range(75):
+    for i in range(150):
         room = Room(app)
         if inAvailableLocation(room, app):
             for (row, col) in room.tiles:
@@ -581,6 +580,9 @@ def generateNodeList(app):
         for room2 in range(len(app.roomList)):
             nodeList[room1][room2] = distance(app.roomList[room1].cx, app.roomList[room1].cy, app.roomList[room2].cx, app.roomList[room2].cy)
     generateTerrain(app, nodeList)
+    # for room1 in app.roomList:
+    #     for room2 in app.roomList:
+    #         connectRooms(room1, room2, app)
 
 
 # credit to https://stackoverflow.com/questions/306316/determine-if-two-rectangles-overlap-each-other
@@ -640,20 +642,23 @@ def generateTerrain(app, nodeList):
                             x = i
                             y = j
                             
-        '''
+        
         print(str(x) + "-" + str(y) + ":" + str(G[x][y]))
-        '''
-
+        connectRooms(app.roomList[x], app.roomList[y], app)
+        
         selected[y] = True
         no_edge += 1
-        connectRooms(app.roomList[x], app.roomList[y], app)
 
 
 def connectRooms(room1, room2, app):
-    cRow1 = (room1.x0 + room1.x1) // 2
-    cCol1 = (room1.y0 + room1.y1) // 2
-    cRow2 = (room2.x0 + room2.x1) // 2
-    cCol2 = (room2.y0 + room2.y1) // 2
+
+    cellWidth = int(app.width / app.cols)
+    cellHeight = int(app.height / app.rows)
+    cRow1 = int(room1.cy / cellWidth)
+    cCol1 = int(room1.cx / cellHeight)
+    cRow2 = int(room2.cy / cellWidth)
+    cCol2 = int(room2.cx / cellWidth)
+    print(cRow1, cCol1, cRow2, cCol2)
     # dx = cCol2 - cCol1
     # dy = cRow2 - cRow1
     # for i in range(dx):
@@ -662,66 +667,117 @@ def connectRooms(room1, room2, app):
     #     app.tilesList[cCol2][i + cRow1] = 0
     dx = cCol2 - cCol1
     dy = cRow2 - cRow1
-    if dx >= 0 and dy >= 0:
-        for i in range(-2, dx + 2):
-            if i + cCol1 < app.cols and i + cCol1 >= 0:
-                app.tilesList[i + cCol1][cRow1] = 0
-            if cRow1 - 1 < app.rows and cRow1 - 1 >= 0:
-                app.tilesList[i + cCol1][cRow1 - 1] = 0
-            if cRow1 + 1 < app.rows and cRow1 + 1 >= 0:
-                app.tilesList[i + cCol1][cRow1 + 1] = 0
-        for j in range(-2, dy + 2):
-            if j + cRow1 < app.rows and i + cRow1 >= 0:
-                app.tilesList[cCol2][j + cRow1] = 0
-            if cCol2 - 1 < app.rows and cCol2 - 1 >= 0:
-                app.tilesList[cCol2 - 1][j + cRow1] = 0
-            if cCol2 + 1 < app.rows and cCol2 + 1 >= 0:
-                app.tilesList[cCol2 + 1][j + cRow1] = 0
-    elif dx >= 0 and dy < 0:
-        for i in range(-2, dx + 2):
-            if i + cCol1 < app.cols and i + cCol1 >= 0:
-                app.tilesList[i + cCol1][cRow2] = 0
-            if cRow2 - 1 < app.rows and cRow2 - 1 >= 0:
-                app.tilesList[i + cCol1][cRow2 - 1] = 0
-            if cRow2 + 1 < app.rows and cRow2 + 1 >= 0:
-                app.tilesList[i + cCol1][cRow2 + 1] = 0
-        for j in range(-2, dy + 2):
-            if j + cRow2 < app.rows and j + cRow2 >= 0:
-                app.tilesList[cCol2][j + cRow2] = 0
-            if cCol2 - 1 < app.rows and cCol2 - 1 >= 0:
-                app.tilesList[cCol2 - 1][j + cRow1] = 0
-            if cCol2 + 1 < app.rows and cCol2 + 1 >= 0:
-                app.tilesList[cCol2 + 1][j + cRow1] = 0
-    elif dx < 0 and dy >= 0:
-        for i in range(-2, dx + 2):
-            if i + cCol2 < app.cols and i + cCol2 >= 0:
-                app.tilesList[i + cCol2][cRow1] = 0
-            if cRow1 - 1 < app.rows and cRow1 - 1 >= 0:
-                app.tilesList[i + cCol1][cRow1 - 1] = 0
-            if cRow1 + 1 < app.rows and cRow1 + 1 >= 0:
-                app.tilesList[i + cCol1][cRow1 + 1] = 0
-        for j in range(-2, dy + 2):
-            if j + cRow1 < app.rows and j + cRow1 >= 0:
-                app.tilesList[cCol1][j + cRow1] = 0
-            if cCol1 - 1 < app.cols and cCol1 - 1 >= 0:
-                app.tilesList[cCol1 - 1][j + cRow1] = 0
-            if cCol1 + 1 < app.cols and cCol1 + 1 >= 0:
-                app.tilesList[cCol1 + 1][j + cRow1] = 0
-    elif dx < 0 and dy < 0:
-        for i in range(-2, dx + 2):
-            if i + cCol2 < app.cols and i + cCol2 >= 0:
-                app.tilesList[i + cCol2][cRow2] = 0
-            if cRow2 - 1 < app.rows and cRow2 - 1 >= 0:
-                app.tilesList[i + cCol1][cRow2 - 1] = 0
-            if cRow2 + 1 < app.rows and cRow2 + 1 >= 0:
-                app.tilesList[i + cCol1][cRow2 + 1] = 0
-        for j in range(-2, dy + 2):
-            if j + cRow2 < app.rows and j + cRow2 >= 0:
-                app.tilesList[cCol1][j + cRow2] = 0
-            if cCol1 - 1 < app.cols and cCol1 - 1 >= 0:
-                app.tilesList[cCol1 - 1][j + cRow1] = 0
-            if cCol1 + 1 < app.cols and cCol1 + 1 >= 0:
-                app.tilesList[cCol1 + 1][j + cRow1] = 0
+    if dx >= 0:
+        for i in range(dx):
+            app.tilesList[i + cCol1][cRow1] = 0
+            app.tilesList[i + cCol1][cRow1 + 1] = 0
+            app.tilesList[i + cCol1][cRow1 - 1] = 0
+    else:
+        for i in range(dx, 0):
+            app.tilesList[i + cCol1][cRow1] = 0
+            app.tilesList[i + cCol1][cRow1 + 1] = 0
+            app.tilesList[i + cCol1][cRow1 - 1] = 0
+    if dy >= 0:
+        for i in range(dy):
+            app.tilesList[cCol2][i + cRow1] = 0
+            app.tilesList[cCol2 + 1][i + cRow1] = 0
+            app.tilesList[cCol2 - 1][i + cRow1] = 0
+    else:
+        for i in range(dy, 0):
+            app.tilesList[cCol2][i + cRow1] = 0
+            app.tilesList[cCol2 + 1][i + cRow1] = 0
+            app.tilesList[cCol2 - 1][i + cRow1] = 0
+    # cRow1 = (room1.y0 + room1.y1) // 2
+    # cCol1 = (room1.x0 + room1.x1) // 2
+    # cRow2 = (room2.y0 + room2.y1) // 2
+    # cCol2 = (room2.x0 + room2.x1) // 2
+
+
+    # # dx = cCol2 - cCol1
+    # # dy = cRow2 - cRow1
+    # # for i in range(dx):
+    # #     app.tilesList[i + cCol1][cRow1] = 0
+    # # for i in range(dy):
+    # #     app.tilesList[cCol2][i + cRow1] = 0
+    
+
+    # # if dx >= 0:
+    # #     for i in range(dx):
+    # #         app.tilesList[i + cCol1][cRow1] = 0
+    # # else: 
+    # #     for i in range(dx, 0):
+    # #         app.tilesList[i + cCol1][cRow1] = 0
+    # # if dy >= 0:
+    # #     for i in range(dy):
+    # #         app.tilesList[cCol2][i + cRow1] = 0
+    # # else:
+    # #     for i in range(dy, 0):
+    # #         app.tilesList[cCol2][i + cRow1] = 0
+
+    
+    
+    # dx = cCol2 - cCol1
+    # dy = cRow2 - cRow1
+    # if dx >= 0 and dy >= 0:
+    #     for i in range(-2, dx + 2):
+    #         if i + cCol1 < app.cols and i + cCol1 >= 0:
+    #             app.tilesList[i + cCol1][cRow1] = 0
+    #         if cRow1 - 1 < app.rows and cRow1 - 1 >= 0:
+    #             app.tilesList[i + cCol1][cRow1 - 1] = 0
+    #         if cRow1 + 1 < app.rows and cRow1 + 1 >= 0:
+    #             app.tilesList[i + cCol1][cRow1 + 1] = 0
+    #     for j in range(-2, dy + 2):
+    #         if j + cRow1 < app.rows and i + cRow1 >= 0:
+    #             app.tilesList[cCol2][j + cRow1] = 0
+    #         if cCol2 - 1 < app.rows and cCol2 - 1 >= 0:
+    #             app.tilesList[cCol2 - 1][j + cRow1] = 0
+    #         if cCol2 + 1 < app.rows and cCol2 + 1 >= 0:
+    #             app.tilesList[cCol2 + 1][j + cRow1] = 0
+    # elif dx >= 0 and dy <= 0:
+    #     for i in range(-2, dx + 2):
+    #         if i + cCol1 < app.cols and i + cCol1 >= 0:
+    #             app.tilesList[i + cCol1][cRow2] = 0
+    #         if cRow2 - 1 < app.rows and cRow2 - 1 >= 0:
+    #             app.tilesList[i + cCol1][cRow2 - 1] = 0
+    #         if cRow2 + 1 < app.rows and cRow2 + 1 >= 0:
+    #             app.tilesList[i + cCol1][cRow2 + 1] = 0
+    #     for j in range(-2, dy + 2):
+    #         if j + cRow2 < app.rows and j + cRow2 >= 0:
+    #             app.tilesList[cCol2][j + cRow2] = 0
+    #         if cCol2 - 1 < app.rows and cCol2 - 1 >= 0:
+    #             app.tilesList[cCol2 - 1][j + cRow1] = 0
+    #         if cCol2 + 1 < app.rows and cCol2 + 1 >= 0:
+    #             app.tilesList[cCol2 + 1][j + cRow1] = 0
+    # elif dx <= 0 and dy >= 0:
+    #     for i in range(-2, dx + 2):
+    #         if i + cCol2 < app.cols and i + cCol2 >= 0:
+    #             app.tilesList[i + cCol2][cRow1] = 0
+    #         if cRow1 - 1 < app.rows and cRow1 - 1 >= 0:
+    #             app.tilesList[i + cCol1][cRow1 - 1] = 0
+    #         if cRow1 + 1 < app.rows and cRow1 + 1 >= 0:
+    #             app.tilesList[i + cCol1][cRow1 + 1] = 0
+    #     for j in range(-2, dy + 2):
+    #         if j + cRow1 < app.rows and j + cRow1 >= 0:
+    #             app.tilesList[cCol1][j + cRow1] = 0
+    #         if cCol1 - 1 < app.cols and cCol1 - 1 >= 0:
+    #             app.tilesList[cCol1 - 1][j + cRow1] = 0
+    #         if cCol1 + 1 < app.cols and cCol1 + 1 >= 0:
+    #             app.tilesList[cCol1 + 1][j + cRow1] = 0
+    # elif dx <= 0 and dy <= 0:
+    #     for i in range(-2, dx + 2):
+    #         if i + cCol2 < app.cols and i + cCol2 >= 0:
+    #             app.tilesList[i + cCol2][cRow2] = 0
+    #         if cRow2 - 1 < app.rows and cRow2 - 1 >= 0:
+    #             app.tilesList[i + cCol1][cRow2 - 1] = 0
+    #         if cRow2 + 1 < app.rows and cRow2 + 1 >= 0:
+    #             app.tilesList[i + cCol1][cRow2 + 1] = 0
+    #     for j in range(-2, dy + 2):
+    #         if j + cRow2 < app.rows and j + cRow2 >= 0:
+    #             app.tilesList[cCol1][j + cRow2] = 0
+    #         if cCol1 - 1 < app.cols and cCol1 - 1 >= 0:
+    #             app.tilesList[cCol1 - 1][j + cRow1] = 0
+    #         if cCol1 + 1 < app.cols and cCol1 + 1 >= 0:
+    #             app.tilesList[cCol1 + 1][j + cRow1] = 0
 
 # Change this later
 def populateTilesList(app):
@@ -744,6 +800,7 @@ def newLevel(app):
     for enemyBullet in EnemyBullet.enemyBulletList:
         del enemyBullet
     Enemy.enemyBulletList = []
+    # generateNodeList(app)
     meleeHealth = 5 + app.level
     meleeStrength = 1 + int(app.level/2)
     rangedHealth = 10 + app.level
@@ -946,8 +1003,8 @@ def game_drawWall(app, canvas):
         for col in range(len(app.tilesList[0])):
             if app.tilesList[row][col] == 1:
                 x0, y0, x1, y1 = getCellBounds(row, col, app)
-                # canvas.create_image((y0 + y1) / 2, (x0 + x1) / 2, image = ImageTk.PhotoImage(app.gameWallImage))
-                canvas.create_rectangle(y0, x0, y1, x1)
+                canvas.create_image((y0 + y1) / 2, (x0 + x1) / 2, image = app.gameWallImage)
+                # canvas.create_rectangle(y0, x0, y1, x1, fill = 'grey')
 
 def newLevel_mousePressed(app, event):
     if .4 * app.width <= event.x <= .6 * app.width and .7 * app.height <= event.y <= .8 * app.height:
