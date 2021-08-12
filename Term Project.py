@@ -201,7 +201,7 @@ class Sniper(Player):
         self.playerImage = self.personImage
 
     def mousePressed(self, app, event):
-        Bullet.bulletList.append(Bullet(self.x, self.y, self.weaponRotation, self.strength, app))
+        Bullet.bulletList.append(Bullet(self.x + 16, self.y + 16, self.weaponRotation, self.strength, app))
 
 
 class Bullet(object):
@@ -232,6 +232,9 @@ class Bullet(object):
 
     def invalidMove(self, app):
         if self.x >= app.width or self.x <= 0 or self.y >= app.height or self.y <= 0:
+            return True
+        row, col = getCell(self.x, self.y, app)
+        if app.tilesList[row][col] == 1:
             return True
         return False
 
@@ -282,6 +285,9 @@ class EnemyBullet(object):
 
     def invalidMove(self, app):
         if self.x >= app.width or self.x <= 0 or self.y >= app.height or self.y <= 0:
+            return True
+        row, col = getCell(self.x, self.y, app)
+        if app.tilesList[row][col] == 1:
             return True
         return False
 
@@ -398,7 +404,7 @@ class MummyEnemy(MeleeEnemy):
         self.pathUpdateTicks = 30
         self.moveTicks = 1
         self.attackTicks = 5
-        self.speed = 4
+        self.speed = 6
             
 class RangedEnemy(Enemy):
     def __init__(self, maxHealth, strength, app):
@@ -535,7 +541,7 @@ def appStarted(app):
     app.roomList = []
     populateRoomList(app)
     generateNodeList(app)
-    app.player = Sniper(5, 2, app)
+    app.player = Sniper(15, 3, app)
     # populateTilesList(app)
     app.meleeTypes = ['mummy']
     app.rangedTypes = ['wizard']
@@ -549,8 +555,10 @@ class Room(object):
         self.y0 = random.randint(0, app.rows - 4)
         self.x1 = self.x0 + random.randint(3, 5)
         self.y1 = self.y0 + random.randint(3, 5)
-        self.cx = app.width / app.cols * (self.x0 + self.x1) / 2
-        self.cy = app.height / app.rows * (self.y0 + self.y1) / 2
+        cellWidth = app.width / app.cols
+        cellHeight = app.height / app.rows
+        self.cx = cellWidth * (self.x0 + self.x1) / 2
+        self.cy = cellHeight * (self.y0 + self.y1) / 2
         self.tiles = []
         for x in range(self.x0, self.x1 + 1):
             for y in range(self.y0, self.y1 + 1):
@@ -631,14 +639,14 @@ def generateTerrain(app, nodeList):
                             minimum = G[i][j]
                             x = i
                             y = j
-                            print(x, y)
-                            connectRooms(app.roomList[y], app.roomList[x], app)
+                            
         '''
         print(str(x) + "-" + str(y) + ":" + str(G[x][y]))
         '''
 
         selected[y] = True
         no_edge += 1
+        connectRooms(app.roomList[x], app.roomList[y], app)
 
 
 def connectRooms(room1, room2, app):
@@ -727,6 +735,15 @@ def populateTilesList(app):
     app.tilesList[6][7] = 1
 
 def newLevel(app):
+    for bullet in Bullet.bulletList:
+        del bullet
+    Bullet.bulletList = []
+    for enemy in Enemy.enemyList:
+        del enemy
+    Enemy.enemyList = []
+    for enemyBullet in EnemyBullet.enemyBulletList:
+        del enemyBullet
+    Enemy.enemyBulletList = []
     meleeHealth = 5 + app.level
     meleeStrength = 1 + int(app.level/2)
     rangedHealth = 10 + app.level
