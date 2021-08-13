@@ -86,6 +86,7 @@ class Player(object):
 
     def keyPressed(self, app, event):
         if self.moveTimer == 0:
+            self.checkHealthKitCollision(app)
             self.moveTimer = 1
             if event.key == 'Up':
                 # self.dy = -4
@@ -115,6 +116,14 @@ class Player(object):
 
     def keyReleased(self, app, event):
         self.moveTimer = 0
+
+
+    def checkHealthKitCollision(self, app):
+        for healthKit in HealthKit.healthKitList:
+            if not(healthKit.x - 16 > self.x + 16 or healthKit.x + 16 < self.x - 16 or healthKit.y - 16 > self.y + 16 or healthKit.y + 16 < self.y - 16):
+                self.heal(healthKit.health)
+                HealthKit.healthKitList.remove(healthKit)
+                del healthKit
 
     def invalidMove(self, app):
         cellWidth = app.width / app.cols
@@ -334,7 +343,16 @@ class BirdEnemyWaterball(EnemyBullet):
 
     
 
+class HealthKit(object):
+    healthKitList = []
 
+    def __init__(self, x, y, health, app):
+        self.x = x
+        self.y = y
+        self.health = health
+
+    def redrawAll(self, app, canvas):
+        canvas.create_image(self.x, self.y, image = app.healthKitImage)
 
 
 class Enemy(object):
@@ -362,6 +380,9 @@ class Enemy(object):
     def takeDamage(self, amount, app):
         self.health -= amount
         if self.health <= 0:
+            num = random.random()
+            if num < 0.33:
+                HealthKit.healthKitList.append(HealthKit(self.x, self.y, self.strength, app))
             Enemy.enemyList.remove(self)
             del self
         if len(Enemy.enemyList) == 0:
@@ -605,6 +626,7 @@ def appStarted(app):
     app.gameBackgroundImage = app.loadImage('gameBackgroundImage.jpg')
     app.gameBackgroundImage = app.scaleImage(app.gameBackgroundImage, 4)
     app.gameWallImage = ImageTk.PhotoImage(app.loadImage('gameWallImage.png'))
+    app.healthKitImage = ImageTk.PhotoImage(app.loadImage('healthKitImage.png'))
 
 
     app.bulletImage = app.loadImage('spr_sniper_bullet.png')
@@ -887,9 +909,11 @@ def newLevel(app):
         del enemy
     Enemy.enemyList = []
     for enemyBullet in EnemyBullet.enemyBulletList:
-        EnemyBullet.enemyBulletList.remove(enemyBullet)
         del enemyBullet
     Enemy.enemyBulletList = []
+    for healthKit in HealthKit.healthKitList:
+        del healthKit
+    HealthKit.healthKitList = []
     app.tilesList = [[1 for col in range(app.cols)] for row in range(app.rows)]
     app.roomList = []
     populateRoomList(app)
@@ -1064,7 +1088,7 @@ def start_drawTitle(app, canvas):
     # canvas.create_rectangle(0, 0, app.width, app.height, fill = '#9e9072')
     canvas.create_image(app.width / 2, app.height / 2, image = ImageTk.PhotoImage(app.gameTitleImage))
     x0, y0, x1, y1 = app.startButtonBounds
-    canvas.create_rectangle(x0, y0, x1, y1, fill = 'darkGrey')
+    canvas.create_rectangle(x0, y0, x1, y1, fill = 'black')
     # canvas.create_rectangle(x0, y0, x1, y1, fill = '#db817f')
     canvas.create_image(app.width / 2, .75 * app.height, image = ImageTk.PhotoImage(app.startButtonImage))
 
@@ -1076,6 +1100,8 @@ def game_mousePressed(app, event):
 
 def game_keyPressed(app, event):
     app.player.keyPressed(app, event)
+    if event.key == 'p':
+        app.mode = 'paused'
 
 def game_keyReleased(app, event):
     app.player.keyReleased(app, event)
@@ -1100,6 +1126,8 @@ def game_redrawAll(app, canvas):
         enemy.drawEnemy(app, canvas)
     for enemyBullet in EnemyBullet.enemyBulletList:
         enemyBullet.drawBullet(app, canvas)
+    for healthKit in HealthKit.healthKitList:
+        healthKit.redrawAll(app, canvas)
 
 def game_drawWall(app, canvas):
     for row in range(len(app.tilesList)):
@@ -1116,10 +1144,10 @@ def newLevel_mousePressed(app, event):
         newLevel(app)
 
 def newLevel_redrawAll(app, canvas):
-    canvas.create_rectangle(0, 0, app.width, app.height, fill = '#9e9072', outline = '')
-    canvas.create_text(app.width / 2, app.height / 2, text = f'Level {app.level} Completed!', font = 'Arial 25')
-    canvas.create_rectangle(.4 * app.width, .7 * app.height, .6 * app.width, .8 * app.height, fill = 'red')
-    canvas.create_text(app.width / 2, .75 * app.height, text = 'Next Level', font = 'Arial 14')
+    canvas.create_rectangle(0, 0, app.width, app.height, fill = 'black', outline = '')
+    canvas.create_text(app.width / 2, app.height / 2, text = f'Level {app.level} Completed!', fill = 'white', font = 'Arial 25')
+    canvas.create_rectangle(.4 * app.width, .7 * app.height, .6 * app.width, .8 * app.height, fill = 'darkGrey')
+    canvas.create_text(app.width / 2, .75 * app.height, text = 'Next Level', fill = 'white', font = 'Arial 14')
 
 def gameOver_mousePressed(app, event):
     if .4 * app.width <= event.x <= .6 * app.width and .7 * app.height <= event.y <= .8 * app.height:
@@ -1132,5 +1160,14 @@ def gameOver_redrawAll(app, canvas):
     canvas.create_rectangle(.4 * app.width, .7 * app.height, .6 * app.width, .8 * app.height, fill = 'red')
     canvas.create_text(app.width / 2, .75 * app.height, text = 'Click here to continue', font = 'Arial 14')
 
+def paused_redrawAll(app, canvas):
+    canvas.create_rectangle(0, 0, app.width, app.height, fill = 'black')
+    canvas.create_rectangle(app.width / 2 - 50, app.height / 2 - 100, app.width / 2 - 25, app.height / 2 + 100, fill = 'white')
+    canvas.create_rectangle(app.width / 2 + 50, app.height / 2 - 100, app.width / 2 + 25, app.height / 2 + 100, fill = 'white')
 
+def paused_mousePressed(app, canvas):
+    app.mode = 'game'
+
+def paused_keyPressed(app, canvas):
+    app.mode = 'game'
 runApp(width = 1024, height = 1024)
