@@ -43,8 +43,8 @@ other credits:
 
 
 class Player(object):
-    def __init__(self, maxHealth, strength, app):
-        self.health = maxHealth
+    def __init__(self, health, maxHealth, strength, app):
+        self.health = health
         self.maxHealth = maxHealth
         self.strength = strength
         self.x = app.width / 2
@@ -54,6 +54,9 @@ class Player(object):
         while(app.tilesList[row][col] == 1):
             self.x += 32
             row += 1
+            if row >= app.rows:
+                row = 0
+                col += 1
         self.dx = 0
         self.dy = 0
         self.weaponRotation = 0
@@ -194,8 +197,8 @@ class Player(object):
 
 
 class Sniper(Player):
-    def __init__(self, maxHealth, strength, app):
-        super().__init__(maxHealth, strength, app)
+    def __init__(self, health, maxHealth, strength, app):
+        super().__init__(health, maxHealth, strength, app)
         self.bulletSpeed = 30
         self.weaponImage = app.loadImage('spr_sniper.png')
         self.rotatedWeaponImage = self.weaponImage
@@ -245,8 +248,8 @@ class Bullet(object):
 
     def checkEnemyHits(self, app):
         for enemy in Enemy.enemyList:
-            dx = self.x - max(enemy.x - enemy.image.size[0] / 2, min(self.x, enemy.x + enemy.image.size[0] / 2))
-            dy = self.y - max(enemy.y - enemy.image.size[1] / 2, min(self.y, enemy.y + enemy.image.size[1] / 2))
+            dx = self.x - max(enemy.x - 32 / 2, min(self.x, enemy.x + 32 / 2))
+            dy = self.y - max(enemy.y - 32 / 2, min(self.y, enemy.y + 32 / 2))
             radius = 2
             if dx**2 + dy**2 <= radius**2:
                 Enemy.enemyList
@@ -268,8 +271,6 @@ class EnemyBullet(object):
         self.angleRadians = angleDegrees * math.pi / 180
         self.dx = 10 * math.cos(self.angleRadians)
         self.dy = -10 * math.sin(self.angleRadians)
-        self.image = app.wizardEnemyFireball
-        self.radius = 2
 
     def move(self, app):
         self.x += self.dx
@@ -302,13 +303,27 @@ class EnemyBullet(object):
         # dy = self.y - max(app.player.y - app.player.playerImage.size[1] / 4, min(self.y, app.player.y + app.player.playerImage.size[1] / 4))
         dx = self.x - max(app.player.x - 32 / 10000, min(self.x, app.player.x + 32 / 100000))
         dy = self.y - max(app.player.y - 32 / 4, min(self.y, app.player.y + 32 / 4))
-        radius = 16
+        radius = self.radius
         return dx**2 + dy**2 <= radius**2
 
 class WizardEnemyFireball(EnemyBullet):
     def __init__(self, x, y, angleDegrees, damage, app):
         super().__init__(x, y, angleDegrees, damage, app)
         self.radius = 16
+        self.image = app.wizardEnemyFireball
+
+class SnowmanEnemySnowball(EnemyBullet):
+    def __init__(self, x, y, angleDegrees, damage, app):
+        super().__init__(x, y, angleDegrees, damage, app)
+        self.radius = 16
+        self.image = app.snowmanEnemySnowball
+
+class BirdEnemyWaterball(EnemyBullet):
+    def __init__(self, x, y, angleDegrees, damage, app):
+        super().__init__(x, y, angleDegrees, damage, app)
+        self.radius = 16
+        self.image = app.birdEnemyWaterball
+
 
     # def checkPlayerHit(self, app):
     #     dx = self.x - max(app.player.x - app.player.playerImage.size[0], min(self.x, app.player.x + app.player.playerImage.size[0]))
@@ -353,7 +368,7 @@ class Enemy(object):
             app.mode = 'newLevel'
 
     def drawEnemy(self, app, canvas):
-        canvas.create_image(self.x, self.y, image = ImageTk.PhotoImage(self.image))
+        canvas.create_image(self.x, self.y, image = self.image)
 
 
 
@@ -404,7 +419,18 @@ class MummyEnemy(MeleeEnemy):
         self.moveTicks = 1
         self.attackTicks = 5
         self.speed = 6
-            
+
+
+class ZombieEnemy(MeleeEnemy):
+    def __init__(self, maxHealth, strength, app):
+        super().__init__(maxHealth, strength, app)
+        self.image = app.zombieEnemyImage
+        self.pathUpdateTicks = 30
+        self.moveTicks = 1
+        self.attackTicks = 8
+        self.speed = 10
+
+
 class RangedEnemy(Enemy):
     def __init__(self, maxHealth, strength, app):
         super().__init__(maxHealth, strength, app)
@@ -454,15 +480,13 @@ class RangedEnemy(Enemy):
                     newX, newY = app.player.x, app.player.y
         return getCell(newX, newY, app)
 
-
-    
 class WizardEnemy(RangedEnemy):
     def __init__(self, maxHealth, strength, app):
         super().__init__(maxHealth, strength, app)
         self.image = app.wizardEnemyImage
         self.minRange = 5
         self.maxRange = 8
-        self.pathUpdateTicks = 70
+        self.pathUpdateTicks = 150
         self.moveTicks = 1
         self.attackTicks = 20
         self.speed = 4
@@ -481,14 +505,63 @@ class WizardEnemy(RangedEnemy):
             angle += 180
         elif dx >= 0 and dy > 0:
             angle = 360 - angle
-        EnemyBullet.enemyBulletList.append(EnemyBullet(self.x, self.y, angle, self.strength, app))
+        EnemyBullet.enemyBulletList.append(WizardEnemyFireball(self.x, self.y, angle, self.strength, app))
             
+class SnowmanEnemy(RangedEnemy):
+    def __init__(self, maxHealth, strength, app):
+        super().__init__(maxHealth, strength, app)
+        self.image = app.snowmanEnemyImage
+        self.minRange = 4
+        self.maxRange = 6
+        self.pathUpdateTicks = 70
+        self.moveTicks = 1
+        self.attackTicks = 25
+        self.speed = 3
 
+    def attack(self, app):
+        dx = app.player.x - self.x
+        dy = app.player.y - self.y
+        try:
+            angle = math.atan(dy / dx)
+        except:
+            angle = math.pi / 2
+        angle = abs(angle) * 180 / math.pi
+        if dx < 0 and dy < 0:
+            angle = 180 - angle
+        elif dx <= 0 and dy > 0:
+            angle += 180
+        elif dx >= 0 and dy > 0:
+            angle = 360 - angle
+        EnemyBullet.enemyBulletList.append(SnowmanEnemySnowball(self.x, self.y, angle, self.strength, app))
 
+class BirdEnemy(RangedEnemy):
+    def __init__(self, maxHealth, strength, app):
+        super().__init__(maxHealth, strength, app)
+        self.image = app.birdEnemyImage
+        self.minRange = 8
+        self.maxRange = 10
+        self.pathUpdateTicks = 60
+        self.moveTicks = 1
+        self.attackTicks = 40
+        self.speed = 7
 
-# Credit for this: Nicholas Swift
-# as found at https://medium.com/@nicholas.w.swift/easy-a-star-pathfinding-7e6689c7f7b2
+    def attack(self, app):
+        dx = app.player.x - self.x
+        dy = app.player.y - self.y
+        try:
+            angle = math.atan(dy / dx)
+        except:
+            angle = math.pi / 2
+        angle = abs(angle) * 180 / math.pi
+        if dx < 0 and dy < 0:
+            angle = 180 - angle
+        elif dx <= 0 and dy > 0:
+            angle += 180
+        elif dx >= 0 and dy > 0:
+            angle = 360 - angle
+        EnemyBullet.enemyBulletList.append(BirdEnemyWaterball(self.x, self.y, angle, self.strength, app))
 
+# credit to https://medium.com/@nicholas.w.swift/easy-a-star-pathfinding-7e6689c7f7b2
 class Node:
     """
     A node class for A* Pathfinding
@@ -524,26 +597,40 @@ def appStarted(app):
     app.rows = 32
     app.cols = 32
     app.mode = 'start'
+    app.timerDelay = 20
     app.startButtonBounds = (app.width / 2 - 100, .7 * app.height, app.width / 2 + 100, .8 * app.height)
+    app.gameTitleImage = app.loadImage('gameTitleImage.png')
+    app.startButtonImage = app.loadImage('startButtonImage.png')
+    app.startButtonImage = app.scaleImage(app.startButtonImage, .5)
     app.gameBackgroundImage = app.loadImage('gameBackgroundImage.jpg')
     app.gameBackgroundImage = app.scaleImage(app.gameBackgroundImage, 4)
     app.gameWallImage = ImageTk.PhotoImage(app.loadImage('gameWallImage.png'))
-    app.timerDelay = 20
+
+
     app.bulletImage = app.loadImage('spr_sniper_bullet.png')
-    app.wizardEnemyImage = app.loadImage('wizard_enemy_single_frame.png')
-    app.wizardEnemyFireball = ImageTk.PhotoImage(app.loadImage('enemy_wizard_fireball.png'))
-    app.mummyEnemyImage = app.loadImage('mummy_enemy_single.png')
+    app.wizardEnemyImage = ImageTk.PhotoImage(app.loadImage('wizard_enemy_single.png'))
+    app.wizardEnemyFireball = ImageTk.PhotoImage(app.loadImage('wizard_enemy_fireball.png'))
+    app.snowmanEnemyImage = ImageTk.PhotoImage(app.loadImage('snowman_enemy_single.png'))
+    app.snowmanEnemySnowball = ImageTk.PhotoImage(app.loadImage('snowman_enemy_snowball.png'))
+    app.birdEnemyImage = ImageTk.PhotoImage(app.loadImage('bird_enemy_single.png'))
+    app.birdEnemyWaterball = ImageTk.PhotoImage(app.loadImage('bird_enemy_waterball.png'))
+
+    app.mummyEnemyImage = ImageTk.PhotoImage(app.loadImage('mummy_enemy_single.png'))
+    app.zombieEnemyImage = ImageTk.PhotoImage(app.loadImage('zombie_enemy_single.png'))
+
     Enemy.enemyList = []
     Bullet.bulletList = []
     EnemyBullet.enemyBulletList = []
+    
+
     app.tilesList = [[1 for col in range(app.cols)] for row in range(app.rows)]
     app.roomList = []
     populateRoomList(app)
     generateNodeList(app)
-    app.player = Sniper(15, 3, app)
+    app.player = Sniper(15, 15, 3, app)
     # populateTilesList(app)
-    app.meleeTypes = ['mummy']
-    app.rangedTypes = ['wizard']
+    app.meleeTypes = ['mummy', 'zombie']
+    app.rangedTypes = ['wizard', 'snowman', 'bird']
     app.level = 1
     newLevel(app)
 
@@ -592,6 +679,8 @@ def inAvailableLocation(room, app):
             return False
     return True
 
+
+# credit to https://www.programiz.com/dsa/prim-algorithm
 def generateTerrain(app, nodeList):
     # Prim's Algorithm in Python
 
@@ -798,9 +887,15 @@ def newLevel(app):
         del enemy
     Enemy.enemyList = []
     for enemyBullet in EnemyBullet.enemyBulletList:
+        EnemyBullet.enemyBulletList.remove(enemyBullet)
         del enemyBullet
     Enemy.enemyBulletList = []
-    # generateNodeList(app)
+    app.tilesList = [[1 for col in range(app.cols)] for row in range(app.rows)]
+    app.roomList = []
+    populateRoomList(app)
+    generateNodeList(app)
+    currentPlayerHealth = app.player.health
+    app.player = Sniper(currentPlayerHealth, 15, 3, app)
     meleeHealth = 5 + app.level
     meleeStrength = 1 + int(app.level/2)
     rangedHealth = 10 + app.level
@@ -811,10 +906,16 @@ def newLevel(app):
         enemyType = random.choice(app.meleeTypes)
         if enemyType == 'mummy':
             Enemy.enemyList.append(MummyEnemy(meleeHealth, meleeStrength, app))
+        elif enemyType == 'zombie':
+            Enemy.enemyList.append(ZombieEnemy(meleeHealth, meleeStrength, app))
     for i in range(numRanged):
         enemyType = random.choice(app.rangedTypes)
         if enemyType == 'wizard':
             Enemy.enemyList.append(WizardEnemy(rangedHealth, rangedStrength, app))
+        elif enemyType == 'snowman':
+            Enemy.enemyList.append(SnowmanEnemy(rangedHealth, rangedStrength, app))
+        elif enemyType == 'bird':
+            Enemy.enemyList.append(BirdEnemy(rangedHealth, rangedStrength, app))
 
 
 def getCellBounds(row, col, app):
@@ -959,11 +1060,13 @@ def start_redrawAll(app, canvas):
     start_drawTitle(app, canvas)
 
 def start_drawTitle(app, canvas):
-    canvas.create_rectangle(0, 0, app.width, app.height, fill = '#9e9072')
-    canvas.create_text(app.width / 2, app.height / 2, text = 'Game Title', fill = 'black', font = 'Times 20')
+    canvas.create_rectangle(0, 0, app.width, app.height, fill = 'black')
+    # canvas.create_rectangle(0, 0, app.width, app.height, fill = '#9e9072')
+    canvas.create_image(app.width / 2, app.height / 2, image = ImageTk.PhotoImage(app.gameTitleImage))
     x0, y0, x1, y1 = app.startButtonBounds
-    canvas.create_rectangle(x0, y0, x1, y1, fill = '#db817f')
-    canvas.create_text(app.width / 2, .75 * app.height, text = 'Start', fill = 'black', font = 'Times 14')
+    canvas.create_rectangle(x0, y0, x1, y1, fill = 'darkGrey')
+    # canvas.create_rectangle(x0, y0, x1, y1, fill = '#db817f')
+    canvas.create_image(app.width / 2, .75 * app.height, image = ImageTk.PhotoImage(app.startButtonImage))
 
 def game_mouseMoved(app, event):
     app.player.mouseMoved(app, event)
@@ -1025,6 +1128,7 @@ def gameOver_mousePressed(app, event):
 def gameOver_redrawAll(app, canvas):
     canvas.create_rectangle(0, 0, app.width, app.height, fill = 'black', outline = '')
     canvas.create_text(app.width / 2, app.height / 2, text = 'Game Over', fill = 'red', font = 'Arial 25')
+    canvas.create_text(app.width / 2, app.height * .55, text = f'Level {app.level}', fill = 'red', font = 'Arial 14')
     canvas.create_rectangle(.4 * app.width, .7 * app.height, .6 * app.width, .8 * app.height, fill = 'red')
     canvas.create_text(app.width / 2, .75 * app.height, text = 'Click here to continue', font = 'Arial 14')
 
